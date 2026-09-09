@@ -1,5 +1,15 @@
 # R18G-B Development Group Evidence Evaluation
 
+## R18G-B2 decision recorded
+
+The completed targeted reference validated all nine partition assignments and
+resolved both previously unresolvable Development comparisons. Current is an
+exact 3+2 human match for `R18G-D09438A953125080` and creates two rather than
+ADR's six false co-memberships for the four human-singleton members of
+`R18G-FFF38D9F3046F48C`. Both cases are `CURRENT_STRONGLY_PREFERRED`; the final
+classification is `R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`. See
+`docs/R18G_TARGETED_PARTITION_EVALUATION.md`. The sealed holdout remains unseen.
+
 ## R18G-B1 follow-up prepared
 
 The separately authorized R18G-B1 follow-up is now

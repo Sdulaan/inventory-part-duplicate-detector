@@ -1,5 +1,16 @@
 # Current project assessment
 
+## R18G-B2 current partition objective supported
+
+The two-group targeted Development reference is validated and frozen with
+`MEDIUM_SINGLE_SENIOR_EXPERT` strength. Current exactly matches the human Candle
+3+2 split and is less unsafe for the four MLR singletons (two false pair
+co-memberships versus ADR's six). Both per-comparison decisions are
+`CURRENT_STRONGLY_PREFERRED`; the final decision is
+`R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`. Runtime is unchanged, provider
+calls are zero, and the sealed holdout remains unseen. Next is the explicit
+current-policy freeze, not a runtime correction.
+
 ## R18G-B1 awaiting targeted partition input
 
 The deterministic R18G-B1 package contains exactly the two development groups

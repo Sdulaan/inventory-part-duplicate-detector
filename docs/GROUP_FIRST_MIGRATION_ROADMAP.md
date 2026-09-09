@@ -1,5 +1,14 @@
 # Group-first identity migration roadmap
 
+## R18G-B2 targeted-evaluation overlay
+
+R18G-B2 is `R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`. Both targeted
+Development cases prefer current over ADR: one exact human match and one
+materially smaller unsafe coarsening. Do not change runtime in B2. `NEXT =
+R18H_FREEZE_CURRENT_GF5_PARTITION_POLICY`; after that freeze is committed and
+verified, `NEXT LATER = R18G_C_SEALED_HOLDOUT_VALIDATION`. Confidence, LLM,
+XLSX-vNext, deployment, and GF11 remain downstream.
+
 ## R18G-B1 targeted-partition overlay
 
 R18G-B1 is `R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`. Give only the

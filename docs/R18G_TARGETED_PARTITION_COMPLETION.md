@@ -1,6 +1,16 @@
 # R18G-B1 targeted partition completion
 
-Status: `R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`
+## R18G-B2 completion status
+
+The returned workbook has now been validated and frozen by R18G-B2. All nine
+partition IDs were complete and valid, source fields and prior judgments were
+unchanged, and the final Development decision is
+`R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`. See
+`docs/R18G_TARGETED_PARTITION_EVALUATION.md`. The submitted workbook bytes were
+not altered and the sealed holdout remains unseen.
+
+Preparation status at the original handoff:
+`R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`
 
 ## Baseline and scope
 

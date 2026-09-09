@@ -1,5 +1,15 @@
 # Group-first inventory identity project SSOT
 
+## R18G-B2 supports the current GF5 partition objective
+
+`R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`: the validated targeted Senior
+partitions prefer current in both Development comparison sets. Current exactly
+matches the Candle 3+2 human partition; for four human-singleton MLR records,
+current makes two false pair co-memberships while ADR makes all six. Cannot-link
+safety is preserved, the sealed holdout remains unseen, runtime/GF5 is
+unchanged, and provider calls are 0. `NEXT =
+R18H_FREEZE_CURRENT_GF5_PARTITION_POLICY`; only then proceed later to R18G-C.
+
 ## R18G-B1 targeted partition package awaiting human input
 
 `R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`: a deterministic blinded
