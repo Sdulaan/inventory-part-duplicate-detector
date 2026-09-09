@@ -1,5 +1,15 @@
 # GF-12C1 showable product acceptance checklist
 
+## R18H GF5 policy freeze
+
+`R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN` reconciles the ADR to the unchanged
+runtime objective `(covered, likely_members, strong, -review, -group_count)`.
+This Development-backed policy freeze does not claim perfect resolution or
+production accuracy: `GF5-GROUP-PARTITION-RESIDUAL-MIXING` remains OPEN. R18C,
+the 21 Bicycle Review edges, generic deferral, and Head/Tail cannot-link safety
+remain unchanged. The sealed holdout remains unseen and may be evaluated only
+in the separately authorized R18G-C stage after the R18H commit is verified.
+
 ## R18G-B development evidence
 
 The single-Senior DEVELOPMENT group reference is valid, but the GF5/ADR question

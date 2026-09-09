@@ -1,5 +1,16 @@
 # Group-first inventory identity project SSOT
 
+## R18H current GF5 partition policy frozen
+
+`R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`: `GF5_PARTITION_POLICY_V1` freezes
+the unchanged objective `(covered, likely_members, strong, -review,
+-group_count)`. Review remains useful lower-authority/higher-ambiguity evidence;
+suppression is not authorized. `GF5-GROUP-PARTITION-RESIDUAL-MIXING` stays OPEN
+because the preferred current objective is not perfect. R18C and Bicycle/generic
+safety are preserved, runtime is unchanged, provider calls are 0, and the
+sealed holdout remains unseen. After the R18H commit and clean verification,
+`NEXT = R18G_C_SEALED_HOLDOUT_VALIDATION`.
+
 ## R18G-B2 supports the current GF5 partition objective
 
 `R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`: the validated targeted Senior

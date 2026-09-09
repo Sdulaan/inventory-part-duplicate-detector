@@ -1,5 +1,16 @@
 # Current project assessment
 
+## R18H current GF5 policy frozen
+
+`GF5_PARTITION_POLICY_V1` is frozen with the already-running objective
+`(covered, likely_members, strong, -review, -group_count)` and unchanged
+equal-best stable-intersection/defer behavior. Architecture now agrees with
+implementation and the R18G-B2 Development evidence. Runtime is unchanged,
+Review suppression remains unauthorized, and
+`GF5-GROUP-PARTITION-RESIDUAL-MIXING` is OPEN. R18C/Bicycle safety is preserved,
+provider calls are zero, and the sealed holdout remains unseen. R18G-C becomes
+the next authorized stage only after the R18H commit and clean verification.
+
 ## R18G-B2 current partition objective supported
 
 The two-group targeted Development reference is validated and frozen with

@@ -1,5 +1,16 @@
 # R18G-B2 targeted human partition evaluation
 
+## R18H policy-freeze outcome
+
+R18H subsequently froze the supported unchanged objective as
+`GF5_PARTITION_POLICY_V1`: `(covered, likely_members, strong, -review,
+-group_count)`. The classification is
+`R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`; residual mixing remains OPEN rather
+than being misrepresented as resolved. After the R18H commit and clean working-
+tree verification, R18G-C is authorized to evaluate the still-unseen sealed
+holdout. See `docs/GF5_PARTITION_POLICY.md` and
+`docs/R18H_GF5_PARTITION_POLICY_FREEZE.md`.
+
 Classification: `R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`
 
 Next: `R18H_FREEZE_CURRENT_GF5_PARTITION_POLICY`

@@ -1,5 +1,15 @@
 # Group-first identity migration roadmap
 
+## R18H policy-freeze overlay
+
+R18H is `R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`.
+`GF5_PARTITION_POLICY_V1` freezes `(covered, likely_members, strong, -review,
+-group_count)` without a runtime change. Residual mixing debt remains OPEN;
+Review suppression, confidence, LLM, and XLSX-vNext remain out of scope. Once
+the R18H commit and working tree are verified, `NEXT =
+R18G_C_SEALED_HOLDOUT_VALIDATION`; do not tune after holdout reveal while
+retaining a holdout claim.
+
 ## R18G-B2 targeted-evaluation overlay
 
 R18G-B2 is `R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`. Both targeted
