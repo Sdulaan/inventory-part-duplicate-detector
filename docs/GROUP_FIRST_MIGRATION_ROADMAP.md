@@ -1,5 +1,12 @@
 # Group-first identity migration roadmap
 
+## R18G-B development-evaluation overlay
+
+R18G-B is `R18G_B_PARTITION_DETAIL_REQUIRED`. Do not change GF5. Obtain targeted
+partitions only for development groups `R18G-D09438A953125080` (five members)
+and `R18G-FFF38D9F3046F48C` (four members), then reassess. Do not reopen all 48
+reviews or reveal the sealed holdout. `NEXT = R18G_B1_TARGETED_PARTITION_COMPLETION`.
+
 ## R18G-A preparation overlay
 
 R18G-A is `R18G_AWAITING_GROUP_HUMAN_REVIEW`. The deterministic package contains

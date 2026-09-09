@@ -1,5 +1,13 @@
 # GF-12C1 showable product acceptance checklist
 
+## R18G-B development evidence
+
+The single-Senior DEVELOPMENT group reference is valid, but the GF5/ADR question
+is not resolved: two decisive multi-member NOT ONE challenger judgments lack
+partitions. Classification is `R18G_B_PARTITION_DETAIL_REQUIRED`; external demo
+acceptance remains blocked. Holdout labels are unseen, provider calls are zero,
+and no product behavior changed.
+
 ## R18G-A group-evidence preparation
 
 `R18G_AWAITING_GROUP_HUMAN_REVIEW`: 48 DEVELOPMENT and 16 SEALED HOLDOUT blinded

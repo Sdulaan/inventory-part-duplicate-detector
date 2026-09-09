@@ -1,5 +1,14 @@
 # Current project assessment
 
+## R18G-B requires targeted partition detail
+
+The completed DEVELOPMENT workbook passed exact 48-ID, member/source, schema,
+and no-formula validation. Eight mixed-label vocabulary deviations were strictly
+recoverable; raw labels remain preserved and normalized counts are 11 SAME, 32
+NOT ONE, and five INSUFFICIENT. The available current-vs-ADR evidence cannot
+identify a better GF5 partition objective without partitions for two specific
+multi-member groups. The sealed holdout remains unseen and runtime is unchanged.
+
 ## R18G-A awaiting Senior group review
 
 R18G-A prepared 48 blinded DEVELOPMENT and 16 independent SEALED HOLDOUT group

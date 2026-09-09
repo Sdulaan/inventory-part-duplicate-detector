@@ -1,5 +1,14 @@
 # R18G-A Group-Level Human Evidence Preparation
 
+## R18G-B follow-up
+
+The completed DEVELOPMENT submission was subsequently validated and evaluated
+as `R18G_B_PARTITION_DETAIL_REQUIRED`. Raw judgments remain preserved; the
+separate normalized distribution is 11 SAME, 32 NOT ONE, and five INSUFFICIENT.
+Only two partition-sensitive NOT ONE groups require targeted partition detail.
+The sealed holdout remains unseen. See
+`docs/R18G_DEVELOPMENT_GROUP_EVIDENCE_EVALUATION.md`.
+
 Classification: `R18G_AWAITING_GROUP_HUMAN_REVIEW`
 
 R18G-A prepared a deterministic, blinded whole-group evidence package for the

@@ -194,3 +194,9 @@ R18G-A subsequently prepared the governed group-level package and is
 `R18G_AWAITING_GROUP_HUMAN_REVIEW`: 48 DEVELOPMENT and 16 SEALED HOLDOUT
 hypotheses, zero labels, and zero provider calls. R18D's classification remains
 unchanged, and no Review suppression or GF5 objective change was authorized.
+
+R18G-B then validated the completed DEVELOPMENT group reference but found that
+the current-versus-ADR decision requires partition detail for exactly two
+multi-member challenger groups. Its classification is
+`R18G_B_PARTITION_DETAIL_REQUIRED`; R18D remains unchanged and GF5 is still not
+authorized for modification.

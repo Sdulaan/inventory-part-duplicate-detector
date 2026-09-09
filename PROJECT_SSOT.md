@@ -1,5 +1,14 @@
 # Group-first inventory identity project SSOT
 
+## R18G-B development evidence evaluation
+
+`R18G_B_PARTITION_DETAIL_REQUIRED`: the validated single-Senior DEVELOPMENT
+reference contains 11 SAME, 32 normalized NOT ONE, and five INSUFFICIENT group
+judgments. The three ADR challengers yield two unresolved comparisons and one
+human-insufficient comparison; no objective change is authorized. Request
+partitions only for `R18G-D09438A953125080` and `R18G-FFF38D9F3046F48C`.
+The holdout remains unseen, runtime/GF5 is unchanged, and provider calls are 0.
+
 ## R18G-A group human evidence prepared
 
 `R18G_AWAITING_GROUP_HUMAN_REVIEW`: two independent blinded workbooks now hold
