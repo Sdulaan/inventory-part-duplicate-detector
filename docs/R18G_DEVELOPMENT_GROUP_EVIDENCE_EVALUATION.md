@@ -1,5 +1,16 @@
 # R18G-B Development Group Evidence Evaluation
 
+## R18G-B1 follow-up prepared
+
+The separately authorized R18G-B1 follow-up is now
+`R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`. Its blinded workbook contains
+only `R18G-D09438A953125080` (five members) and
+`R18G-FFF38D9F3046F48C` (four members), with prior judgments and source fields
+protected and all partition inputs blank. See
+`docs/R18G_TARGETED_PARTITION_COMPLETION.md` and stop for the same Senior's
+input. The sealed holdout remains unseen and no GF5 objective change is
+authorized.
+
 Classification: `R18G_B_PARTITION_DETAIL_REQUIRED`
 
 Next: `R18G_B1_TARGETED_PARTITION_COMPLETION`

@@ -1,5 +1,16 @@
 # Group-first inventory identity project SSOT
 
+## R18G-B1 targeted partition package awaiting human input
+
+`R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`: a deterministic blinded
+workbook now requests only the internal partitions of development groups
+`R18G-D09438A953125080` (five members) and `R18G-FFF38D9F3046F48C` (four
+members). Their prior whole-group judgments and source evidence are immutable;
+all nine partition assignments remain blank. The sealed holdout remains unseen,
+runtime/GF5 is unchanged, and provider calls are 0. Give only the workbook to
+the same Senior and follow
+`docs/R18G_TARGETED_PARTITION_COMPLETION_INSTRUCTIONS.md`.
+
 ## R18G-B development evidence evaluation
 
 `R18G_B_PARTITION_DETAIL_REQUIRED`: the validated single-Senior DEVELOPMENT

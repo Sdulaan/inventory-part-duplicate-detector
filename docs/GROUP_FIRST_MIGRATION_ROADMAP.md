@@ -1,5 +1,13 @@
 # Group-first identity migration roadmap
 
+## R18G-B1 targeted-partition overlay
+
+R18G-B1 is `R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`. Give only the
+blinded targeted workbook to the same Senior and collect partitions for
+`R18G-D09438A953125080` and `R18G-FFF38D9F3046F48C`. Keep prior judgments
+fixed, keep the holdout sealed, and do not infer labels. Stop before R18G-B2;
+GF5, confidence, LLM advisory, and XLSX-vNext remain unchanged/not started.
+
 ## R18G-B development-evaluation overlay
 
 R18G-B is `R18G_B_PARTITION_DETAIL_REQUIRED`. Do not change GF5. Obtain targeted

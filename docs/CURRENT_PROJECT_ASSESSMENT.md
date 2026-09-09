@@ -1,5 +1,15 @@
 # Current project assessment
 
+## R18G-B1 awaiting targeted partition input
+
+The deterministic R18G-B1 package contains exactly the two development groups
+whose rejected multi-member hypotheses require an internal split: five members
+in `R18G-D09438A953125080` and four in `R18G-FFF38D9F3046F48C`. Source fields
+and the Senior's prior whole-group judgments reconcile exactly and are
+read-only. All partition inputs are blank, the sealed holdout remains unseen,
+provider calls are zero, and runtime/GF5 is unchanged. The same Senior must now
+assign P1..P20 or `UNRESOLVED`; no GF5 objective change is authorized.
+
 ## R18G-B requires targeted partition detail
 
 The completed DEVELOPMENT workbook passed exact 48-ID, member/source, schema,
