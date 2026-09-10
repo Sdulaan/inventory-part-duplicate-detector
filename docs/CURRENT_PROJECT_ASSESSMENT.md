@@ -1,5 +1,17 @@
 # Current project assessment
 
+## R18J-0 existing evidence is exhausted
+
+The reconciled Strong evidence contains 53 canonical pairs: 40 SAME, 10
+DIFFERENT, and 3 cross-round human-label conflicts. Source visibility among the
+10 DIFFERENT cases is 1 actionable, 6 partial, 2 external, and 1 unresolved.
+Every tested discriminator is either contradicted by SAME controls or catches
+no DIFFERENT case. Classification is
+`R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`; no runtime correction and no tiny
+human check are justified. The near-term product must be advisory, must never
+auto-merge, and must present every system candidate as requiring authoritative
+human review. `NEXT = DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`.
+
 ## R18I causal diagnostic cannot prove a safe general rule
 
 The six rejected Likely cases and two accepted Likely controls are all

@@ -1,5 +1,16 @@
 # R18I holdout Likely-group defect causal diagnostic
 
+## R18J-0 supersession
+
+R18J-0 exhausted the wider existing Senior evidence and confirmed
+`R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`. The reconciled Strong population
+contains 40 SAME, 10 DIFFERENT, and 3 conflicting-label canonical pairs; every
+tested source-visible candidate is contradicted by positive controls or
+non-actionable. No runtime correction or tiny human check is justified. `NEXT =
+DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`, under an advisory,
+requires-human-review contract. R18I's no-safe-cause conclusion and new-holdout
+requirement remain in force.
+
 Classification: `R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`
 
 Next: `NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`

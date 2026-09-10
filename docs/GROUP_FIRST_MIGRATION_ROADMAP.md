@@ -1,5 +1,15 @@
 # Group-first identity migration roadmap
 
+## R18J-0 evidence-exhaustion overlay
+
+R18J-0 is `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`. All available Senior
+pair, Development group/partition, consumed-holdout, and R18I evidence is now
+exhausted. No repeated zero-harm source-visible signal exists, and no <=12-pair
+check is warranted. Keep runtime and GF5 frozen. `NEXT =
+DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`: implement only truthful
+advisory presentation in a separately authorized task. New independent human
+validation remains mandatory after any future runtime correction.
+
 ## R18I diagnostic overlay
 
 R18I is `R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`. The consumed holdout localizes the

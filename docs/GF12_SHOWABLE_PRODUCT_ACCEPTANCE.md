@@ -1,5 +1,17 @@
 # GF-12C1 showable product acceptance checklist
 
+## R18J-0 demo-safe acceptance boundary
+
+No safe Strong correction is supported by existing evidence. For the upcoming
+demo, the product is acceptable only as an advisory workflow: nothing
+auto-merges, human review remains authoritative, and every candidate is framed
+as a “Potential Same-Identity Group” or “System-Suggested Candidate Group” that
+“Requires Human Review.” Do not claim confirmed duplicates, accuracy,
+precision, or confidence percentages. Curated rows must be labelled
+`DEMONSTRATION / WALKTHROUGH EXAMPLES`; client rows remain unvalidated
+candidates. Classification is `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR` and
+`NEXT = DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`.
+
 ## R18I diagnostic outcome
 
 Graduation remains blocked. R18I found that all failed and accepted holdout

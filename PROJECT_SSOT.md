@@ -1,5 +1,18 @@
 # Group-first inventory identity project SSOT
 
+## R18J-0 exhausts existing Strong evidence and defines the demo envelope
+
+`R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`: 67 observations from all
+existing Senior evidence reconcile to 53 canonical post-R18C Strong pairs—40
+SAME, 10 DIFFERENT, and 3 with conflicting labels across review rounds. Of the
+10 unconflicted DIFFERENT pairs, only one is source-visible-actionable, and its
+technical-conflict signal harms three SAME controls. All 18 transparent
+candidate families are contradicted or non-actionable; no runtime correction
+or <=12-pair check is justified. Runtime/GF5 remain unchanged and provider
+calls are 0. Demo posture is advisory, nothing auto-merges, human review is
+authoritative, and candidates must say “Requires Human Review.” `NEXT =
+DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`.
+
 ## R18I finds no safe general correction from the consumed holdout
 
 `R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`: all six rejected Likely groups are
