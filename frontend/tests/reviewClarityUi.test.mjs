@@ -33,7 +33,7 @@ test('R1 two-member Confirm is plain language and maps to CONFIRM_ALL_AS_ONE', (
 
 test('R2 two-member Reject is distinct and maps to KEEP_ALL_SEPARATE', () => {
   const value = reviewDecisionPresentation('KEEP_ALL_SEPARATE', 2)
-  assert.equal(value.label, 'Reject duplicate hypothesis')
+  assert.equal(value.label, 'Reject candidate group')
   assert.match(value.secondary, /Keep these records separate/)
 })
 
@@ -66,10 +66,10 @@ test('R7 saved Confirm shows current authoritative result', () => {
   assert.match(panel, /Current decision controls Reviewed Identity Export|current decision controls Reviewed Identity Export/)
 })
 
-test('R8 saved Reject says no reviewed duplicate set was created', () => {
+test('R8 saved Reject says no reviewed same-identity set was created', () => {
   const outcome = reviewDecisionOutcome(review('KEEP_ALL_SEPARATE'), 2)
   assert.equal(outcome.title, 'Rejected — keep separate')
-  assert.match(outcome.effect, /No reviewed duplicate set was created/)
+  assert.match(outcome.effect, /No reviewed same-identity set was created/)
 })
 
 test('R9 saved Defer remains unresolved and is not Reject', () => {

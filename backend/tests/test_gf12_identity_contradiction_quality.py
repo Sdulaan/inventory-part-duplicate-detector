@@ -276,5 +276,11 @@ def test_no_demo_specific_hard_coding_and_only_bounded_production_files_changed(
         "backend/app/services/hybrid_retrieval.py",
         "backend/app/services/scan_runner.py",
         "backend/app/identity_read/explanations.py",
-        "backend/app/schemas/identity_groups.py",
-    }
+            "backend/app/schemas/identity_groups.py",
+            "backend/app/schemas/identity_group_reviews.py",
+            "backend/app/services/identity_group_export_service.py",
+            "backend/app/services/identity_group_presentation.py",
+            "backend/app/services/identity_group_review_service.py",
+            "backend/app/services/identity_read_export_service.py",
+            "backend/app/services/identity_read_xlsx_export_service.py",
+        }

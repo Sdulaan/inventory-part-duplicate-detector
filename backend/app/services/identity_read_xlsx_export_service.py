@@ -15,24 +15,30 @@ from app.identity_read.key_codec import serialize_versioned_identity_group_key
 from app.services.identity_group_review_service import (
     VersionedIdentityGroupReviewService,
 )
+from app.services.identity_group_presentation import (
+    human_review_presentation,
+    system_evidence_tier,
+)
 from app.services.identity_read_export_service import (
     authority_selected_system_group_rows,
 )
 
 
 WORKBOOK_NOTICE = (
-    "This workbook contains system-generated duplicate identity groups. "
-    "Groups requiring review are not human-confirmed identities. Use Reviewed "
-    "Identity Export for human-confirmed output."
+    "System-generated groups are suggestions requiring human review. "
+    "They are not automatic merge instructions."
 )
 
 GROUP_COLUMNS = (
-    "Duplicate Group",
+    "Candidate Group ID",
     "Canonical Group ID",
-    "Status",
-    "Reason",
-    "Member Count",
     "Review State",
+    "System Evidence Tier",
+    "Member Count",
+    "Sites",
+    "Primary Reason",
+    "Human Decision",
+    "Human Comment",
 )
 
 MEMBER_COLUMNS = (
@@ -70,36 +76,21 @@ _MEMBER_FIELD_BY_COLUMN = {
     "HSN/SAC Code": "hsn_sac",
 }
 
-_STATUS_LABELS = {
-    "LIKELY_DUPLICATE_GROUP": "Likely duplicate group",
-    "POSSIBLE_DUPLICATE_GROUP_REVIEW": "Possible duplicate group - review",
-    "CONFLICT": "Conflict",
-    "DEFERRED": "Deferred",
-}
-
 _REASONS = {
     "LIKELY_DUPLICATE_GROUP": (
-        "Strong identity evidence supports this potential duplicate group; human "
-        "confirmation is not implied."
+        "Stronger deterministic evidence caused the system to suggest this group "
+        "for human review."
     ),
     "POSSIBLE_DUPLICATE_GROUP_REVIEW": (
-        "Potential duplicate identity group; supporting identity evidence is "
-        "present and human review is required."
+        "Deterministic review evidence caused the system to suggest this group; "
+        "human review is required."
     ),
     "CONFLICT": (
         "Conflicting identity evidence prevents safe grouping; human review is required."
     ),
     "DEFERRED": (
-        "Identity evaluation is incomplete or deferred; no duplicate conclusion is implied."
+        "Identity evaluation is incomplete or deferred; no same-identity conclusion is implied."
     ),
-}
-
-_REVIEW_LABELS = {
-    "CONFIRM_ALL_AS_ONE": "Reviewed - confirmed as one",
-    "CONFIRM_SELECTED": "Reviewed - selected members confirmed",
-    "SPLIT_PARTITIONS": "Reviewed - split into identity sets",
-    "KEEP_ALL_SEPARATE": "Reviewed - keep separate",
-    "UNSURE": "Reviewed - unsure",
 }
 
 _HEADER_FILL = PatternFill("solid", fgColor="1F4E78")
@@ -124,15 +115,8 @@ def write_spreadsheet_safe_cell(cell, value) -> None:
 def reason_for_group_status(status: str) -> str:
     return _REASONS.get(
         status,
-        "System-generated potential identity group; human confirmation is not implied.",
+        "System-generated same-identity candidate requiring human review.",
     )
-
-
-def _review_label(state: dict | None) -> str:
-    if not state or not state.get("reviewed"):
-        return "Not reviewed"
-    decision = state.get("current_decision_type")
-    return _REVIEW_LABELS.get(decision, "Reviewed")
 
 
 def _source_reference(row: dict) -> str:
@@ -141,15 +125,24 @@ def _source_reference(row: dict) -> str:
     return stable if source in (None, "") else f"Row {source} / {stable}"
 
 
-def _group_values(label: str, group, state: dict | None) -> tuple:
+def _group_values(label: str, group, state: dict | None, member_rows) -> tuple:
     status = group.status.value
+    review_state, human_decision = human_review_presentation(state)
+    sites = sorted({
+        str(row.get("site_or_contract") or "").strip()
+        for row in member_rows
+        if str(row.get("site_or_contract") or "").strip()
+    })
     return (
         label,
         serialize_versioned_identity_group_key(group.versioned_group_key),
-        _STATUS_LABELS.get(status, status.replace("_", " ").title()),
-        reason_for_group_status(status),
+        review_state,
+        system_evidence_tier(status),
         group.member_count,
-        _review_label(state),
+        ", ".join(sites) or "Not provided",
+        reason_for_group_status(status),
+        human_decision,
+        (state or {}).get("comment") or "",
     )
 
 
@@ -164,11 +157,13 @@ def _write_row(sheet, row_number: int, values) -> None:
         cell = sheet.cell(row=row_number, column=column_number)
         write_spreadsheet_safe_cell(cell, value)
         cell.border = _BORDER
-        cell.alignment = Alignment(vertical="top", wrap_text=column_number in (4, 8))
+        cell.alignment = Alignment(
+            vertical="top", wrap_text=column_number in (4, 7, 8, 9)
+        )
 
 
-def _write_header(sheet) -> None:
-    _write_row(sheet, 1, ALL_COLUMNS)
+def _write_header(sheet, columns=ALL_COLUMNS) -> None:
+    _write_row(sheet, 1, columns)
     for cell in sheet[1]:
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
@@ -178,27 +173,41 @@ def _write_header(sheet) -> None:
 
 
 def _style_dimensions(sheet) -> None:
-    widths = (17, 34, 28, 52, 14, 28, 20, 48, 18, 16, 20, 22, 22, 18, 20, 20, 20, 20, 18, 48)
+    widths = (20, 34, 36, 22, 14, 24, 54, 38, 42, 20, 48, 18, 16, 20, 22, 22, 18, 20, 20, 20, 20, 18, 48)
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
 
 
-def _write_summary(workbook, scan, snapshot) -> None:
+def _write_summary(workbook, scan, snapshot, review_states) -> None:
     sheet = workbook.active
     sheet.title = "Summary"
     rows = (
-        ("System Group Report", ""),
-        ("Notice", WORKBOOK_NOTICE),
-        ("Report type", "System Group Report"),
-        ("Authority", "System-generated / analytical"),
-        ("Human confirmation", "Not implied"),
+        ("Inventory Identity Review Candidate Report", ""),
+        ("Purpose", "Inventory identity review candidate report"),
+        ("Important", WORKBOOK_NOTICE),
+        ("Human authority", "Confirmed, rejected, or deferred human decisions override the system suggestion."),
+        ("Workflow", "System suggests -> Human reviews -> Human decision becomes authoritative"),
+        ("Report authority", "Advisory system suggestions with explicit human-review state"),
         ("Scan identifier", snapshot.scan_id),
         ("Scan name", scan.scan_name),
         ("Scan status", scan.status),
         ("Input record count", snapshot.canonical_record_count),
-        ("Group count", snapshot.group_count),
-        ("Likely group count", snapshot.likely_group_count),
-        ("Review group count", snapshot.review_group_count),
+        ("System-Suggested Candidate Groups", snapshot.group_count),
+        ("Human Confirmed Groups", sum(
+            state.get("current_decision_type") in {
+                "CONFIRM_ALL_AS_ONE", "CONFIRM_SELECTED", "SPLIT_PARTITIONS"
+            } for state in review_states.values()
+        )),
+        ("Human Rejected Candidates", sum(
+            state.get("current_decision_type") == "KEEP_ALL_SEPARATE"
+            for state in review_states.values()
+        )),
+        ("Review Deferred / Unreviewed", sum(
+            not state.get("reviewed") or state.get("current_decision_type") == "UNSURE"
+            for state in review_states.values()
+        )),
+        ("Stronger Evidence candidates", snapshot.likely_group_count),
+        ("Review Evidence candidates", snapshot.review_group_count),
         ("Conflict count", snapshot.conflict_count),
         ("Deferred count", snapshot.deferred_count),
         ("Unassigned count", snapshot.unassigned_count),
@@ -210,7 +219,8 @@ def _write_summary(workbook, scan, snapshot) -> None:
     sheet["A1"].font = Font(bold=True, size=16, color="1F4E78")
     for row_number in range(2, len(rows) + 1):
         sheet.cell(row_number, 1).font = Font(bold=True)
-    sheet["B2"].alignment = Alignment(wrap_text=True, vertical="top")
+    for row_number in (2, 3, 4, 5, 6):
+        sheet.cell(row_number, 2).alignment = Alignment(wrap_text=True, vertical="top")
     sheet.column_dimensions["A"].width = 28
     sheet.column_dimensions["B"].width = 100
     sheet.freeze_panes = "A2"
@@ -228,48 +238,37 @@ def authority_selected_system_groups_to_xlsx(db, scan_id: int) -> bytes:
         rows_by_group.setdefault(row["group_key"], []).append(row)
 
     workbook = Workbook()
-    _write_summary(workbook, scan, snapshot)
-    grouped = workbook.create_sheet("Duplicate Groups")
+    _write_summary(workbook, scan, snapshot, review_states)
+    grouped = workbook.create_sheet("Candidate Groups")
     flat = workbook.create_sheet("Group Data")
-    _write_header(grouped)
+    _write_header(grouped, GROUP_COLUMNS)
     _write_header(flat)
 
     grouped_row = 2
     flat_row = 2
     for group_index, group in enumerate(snapshot.groups, start=1):
         canonical_id = serialize_versioned_identity_group_key(group.versioned_group_key)
-        label = f"DG-{group_index:06d}"
-        group_values = _group_values(label, group, review_states.get(canonical_id))
+        label = f"CG-{group_index:06d}"
         member_rows = rows_by_group.get(canonical_id, ())
-        first_grouped_row = grouped_row
+        group_values = _group_values(
+            label, group, review_states.get(canonical_id), member_rows
+        )
+        _write_row(grouped, grouped_row, group_values)
+        for column in range(1, len(GROUP_COLUMNS) + 1):
+            grouped.cell(grouped_row, column).fill = _GROUP_FILL
+        grouped_row += 1
         for member_row in member_rows:
-            _write_row(grouped, grouped_row, group_values + _member_values(member_row))
             _write_row(flat, flat_row, group_values + _member_values(member_row))
-            grouped_row += 1
             flat_row += 1
-        last_grouped_row = grouped_row - 1
-        if last_grouped_row > first_grouped_row:
-            for column in range(1, len(GROUP_COLUMNS) + 1):
-                grouped.merge_cells(
-                    start_row=first_grouped_row,
-                    start_column=column,
-                    end_row=last_grouped_row,
-                    end_column=column,
-                )
-                grouped.cell(first_grouped_row, column).alignment = Alignment(
-                    vertical="top", wrap_text=column == 4
-                )
-        for row_number in range(first_grouped_row, last_grouped_row + 1):
-            for column in range(1, len(GROUP_COLUMNS) + 1):
-                grouped.cell(row_number, column).fill = _GROUP_FILL
 
     for sheet in (grouped, flat):
         _style_dimensions(sheet)
-    grouped.auto_filter.ref = (
-        f"A1:{get_column_letter(len(ALL_COLUMNS))}{max(1, grouped.max_row)}"
-    )
+    grouped.auto_filter.ref = f"A1:{get_column_letter(len(GROUP_COLUMNS))}{max(1, grouped.max_row)}"
     if flat.max_row >= 2:
-        table = Table(displayName="SystemGroupData", ref=f"A1:T{flat.max_row}")
+        table = Table(
+            displayName="SystemGroupData",
+            ref=f"A1:{get_column_letter(len(ALL_COLUMNS))}{flat.max_row}",
+        )
         table.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium2", showFirstColumn=False, showLastColumn=False,
             showRowStripes=True, showColumnStripes=False,

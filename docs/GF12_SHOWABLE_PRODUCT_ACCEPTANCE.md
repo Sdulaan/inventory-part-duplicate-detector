@@ -1,5 +1,18 @@
 # GF-12C1 showable product acceptance checklist
 
+## Demo-safe presentation acceptance passed
+
+All demo-safety gates pass. Unreviewed internal Likely and Review statuses are
+shown as `Potential Same-Identity Group` and `Requires Human Review`; human
+Confirm, Reject, and Defer outcomes dominate the display. The primary XLSX
+contains `Summary`, `Candidate Groups`, and `Group Data`, separates advisory
+system evidence from human decisions/comments, and preserves member data and
+reviewed-export authority. Unsupported accuracy/probability/confidence claims
+are absent from current demo surfaces. Runtime and GF5 are unchanged, provider
+calls are 0, backend/frontend tests and the frontend production build pass.
+Classification: `DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`; next:
+`FINAL_DEMO_REHEARSAL`.
+
 ## R18J-0 demo-safe acceptance boundary
 
 No safe Strong correction is supported by existing evidence. For the upcoming

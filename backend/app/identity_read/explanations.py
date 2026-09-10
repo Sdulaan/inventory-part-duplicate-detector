@@ -191,7 +191,7 @@ def explain_identity_group(group) -> SystemExplanation:
         basis.append("DIFFERING_NORMALIZED_PART_NUMBERS")
 
     if status == "LIKELY_DUPLICATE_GROUP":
-        headline = "Stronger system-generated duplicate hypothesis"
+        headline = "Potential Same-Identity Group - Stronger deterministic evidence"
         if evaluated and strong:
             text = (
                 f"The system surfaced these {len(members)} records because {strong} of "
@@ -199,12 +199,12 @@ def explain_identity_group(group) -> SystemExplanation:
             )
         else:
             text = (
-                "The system found enough persisted evidence to surface a stronger duplicate "
-                "hypothesis, but no more specific evidence summary is available."
+                "The system found enough persisted evidence to suggest this candidate "
+                "group, but no more specific evidence summary is available."
             )
         guidance = "A human must still confirm, reject, defer, or adjust this identity set."
     else:
-        headline = "Possible duplicate identity - human review required"
+        headline = "Potential Same-Identity Group - Requires Human Review"
         supported = strong + review
         if evaluated and supported:
             text = (
@@ -265,7 +265,7 @@ def explain_identity_conflict(conflict) -> SystemExplanation:
     return SystemExplanation(
         headline="Conflict - records were not grouped automatically",
         summary=(
-            f"The system kept {count or 'these'} records out of an accepted duplicate group "
+            f"The system kept {count or 'these'} records out of a system-suggested candidate group "
             "because persisted evidence prevents safe automatic grouping."
         ),
         supporting_points=tuple(points[:MAX_SUPPORTING_POINTS]),

@@ -181,7 +181,7 @@ export default function GroupReviewPanel({ scanId, detail, onSaved = () => {} })
             <option value="" disabled>Choose Confirm, Reject, or Defer</option>
             <optgroup label="Primary decisions">
               <option value="CONFIRM_ALL_AS_ONE">{memberCount > 2 ? 'Confirm all as same item' : 'Confirm as same item'}</option>
-              <option value="KEEP_ALL_SEPARATE">Reject duplicate hypothesis</option>
+              <option value="KEEP_ALL_SEPARATE">Reject candidate group</option>
               <option value="UNSURE">Defer decision</option>
             </optgroup>
             {showAdvanced && <optgroup label="Advanced multi-member decisions">

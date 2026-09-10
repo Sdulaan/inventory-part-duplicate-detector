@@ -1,5 +1,19 @@
 # R18J-0 existing-evidence exhaustion and demo-safe envelope
 
+## Productization follow-through
+
+The authorized follow-through is complete with classification
+`DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`. Because R18J-0 found no safe
+source-visible discriminator, no detector correction was made. Instead, the
+UI and exports now apply a deterministic advisory presentation mapping:
+unreviewed groups are `Potential Same-Identity Group` / `Requires Human Review`,
+and human Confirm, Reject, or Defer states become the visible authority. The
+bounded XLSX uses `Summary`, `Candidate Groups`, and `Group Data` and makes the
+authority split explicit without changing membership. Curated walkthrough data
+must be labelled; real data remains unvalidated candidate output. No unsupported
+accuracy/probability/confidence claim was added, runtime and GF5 remain
+unchanged, provider calls are 0, and `NEXT = FINAL_DEMO_REHEARSAL`.
+
 Classification: `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`
 
 Next: `DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`

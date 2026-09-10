@@ -1,5 +1,16 @@
 # Group-first identity migration roadmap
 
+## Demo-safe productization completed
+
+`DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL` is complete as a presentation
+and export boundary only. System output is an advisory candidate; human review
+is authoritative. The bounded XLSX revision separates suggestion, evidence
+tier, and human decision without starting XLSX-vNext. Runtime grouping,
+evidence, membership, GF5 policy, signatures, thresholds, and cannot-link rules
+remain unchanged. Group Confidence Index, LLM work, Identity Context Projection,
+deployment/IAM/IFS integration, new resolver work, and GF11 performance work
+remain unauthorized. `NEXT = FINAL_DEMO_REHEARSAL`.
+
 ## R18J-0 evidence-exhaustion overlay
 
 R18J-0 is `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`. All available Senior

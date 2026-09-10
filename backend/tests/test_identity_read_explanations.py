@@ -80,8 +80,8 @@ def test_t1_same_persisted_input_has_deterministic_explanation():
 def test_t2_likely_and_review_have_distinct_status_specific_language():
     likely = explain_identity_group(_group("LIKELY_DUPLICATE_GROUP", strong=1, review=0))
     review = explain_identity_group(_group())
-    assert likely.headline == "Stronger system-generated duplicate hypothesis"
-    assert review.headline == "Possible duplicate identity - human review required"
+    assert likely.headline == "Potential Same-Identity Group - Stronger deterministic evidence"
+    assert review.headline == "Potential Same-Identity Group - Requires Human Review"
     assert likely.headline != review.headline
 
 

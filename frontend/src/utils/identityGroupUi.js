@@ -1,6 +1,19 @@
 const GROUP_STATUS_LABELS = {
-  LIKELY_DUPLICATE_GROUP: 'Likely duplicate group',
-  POSSIBLE_DUPLICATE_GROUP_REVIEW: 'Possible duplicate group — review',
+  LIKELY_DUPLICATE_GROUP: 'Potential Same-Identity Group',
+  POSSIBLE_DUPLICATE_GROUP_REVIEW: 'Potential Same-Identity Group',
+}
+
+const GROUP_EVIDENCE_TIERS = {
+  LIKELY_DUPLICATE_GROUP: 'Stronger deterministic evidence',
+  POSSIBLE_DUPLICATE_GROUP_REVIEW: 'Needs additional review',
+}
+
+const HUMAN_AUTHORITY_LABELS = {
+  CONFIRM_ALL_AS_ONE: 'Human Confirmed Same-Identity Group',
+  CONFIRM_SELECTED: 'Human Confirmed Same-Identity Group',
+  SPLIT_PARTITIONS: 'Human Reviewed - Split into Identity Sets',
+  KEEP_ALL_SEPARATE: 'Human Rejected Candidate',
+  UNSURE: 'Review Deferred',
 }
 
 const EDGE_CLASS_LABELS = {
@@ -38,7 +51,19 @@ function fallbackLabel(value, fallback) {
 }
 
 export const groupStatusLabel = status => GROUP_STATUS_LABELS[status]
-  || fallbackLabel(status, 'Unknown group status')
+  || fallbackLabel(status, 'System-Suggested Candidate Group')
+export const groupEvidenceTierLabel = status => GROUP_EVIDENCE_TIERS[status]
+  || 'Unspecified evidence'
+export const groupAuthorityLabel = (status, reviewState = {}) => (
+  reviewState.reviewed
+    ? HUMAN_AUTHORITY_LABELS[reviewState.current_decision_type] || 'Human Review Recorded'
+    : groupStatusLabel(status)
+)
+export const groupReviewAuthorityLabel = (reviewState = {}) => (
+  reviewState.reviewed
+    ? HUMAN_AUTHORITY_LABELS[reviewState.current_decision_type] || 'Human Review Recorded'
+    : 'Requires Human Review'
+)
 export const edgeClassLabel = value => EDGE_CLASS_LABELS[value]
   || fallbackLabel(value, 'Unknown edge class')
 export const evidenceSourceLabel = value => EVIDENCE_SOURCE_LABELS[value]

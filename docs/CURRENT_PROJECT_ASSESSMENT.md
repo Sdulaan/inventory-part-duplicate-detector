@@ -1,5 +1,17 @@
 # Current project assessment
 
+## Demo-safe productization is ready for rehearsal
+
+The product now tells the bounded truth established by R18J-0: system groups
+are advisory same-identity candidates, every unreviewed candidate requires
+human review, and the current human decision is authoritative. The group-first
+UI and XLSX separate system evidence from Confirm, Reject, and Defer outcomes;
+the reviewed CSV remains human-confirmed only. No unsupported accuracy,
+probability, or confidence percentage is shown. Detector, evidence, membership,
+thresholds, GF5 policy, and review semantics are unchanged; provider calls are
+0. Classification: `DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`. `NEXT =
+FINAL_DEMO_REHEARSAL`.
+
 ## R18J-0 existing evidence is exhausted
 
 The reconciled Strong evidence contains 53 canonical pairs: 40 SAME, 10

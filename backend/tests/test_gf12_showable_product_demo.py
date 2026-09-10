@@ -280,7 +280,7 @@ def test_demo4_visible_product_ready_only_on_completion(demo):
 def test_demo5_primary_result_is_authority_selected_group_first(demo):
     assert all(item["projection"]["projection_contract"] == "G2_V2" for item in demo["summaries"])
     page = (REPO_ROOT / "frontend/src/pages/ScanResults.jsx").read_text(encoding="utf-8")
-    assert "Potential duplicate identities" in page
+    assert "System-Suggested Candidate Groups" in page
     assert "Advanced legacy pair diagnostics" in page
 
 
@@ -451,8 +451,12 @@ def test_demo24_only_bounded_xlsx_export_production_files_change():
         "backend/app/orchestration/contracts.py",
         "backend/app/api/routes_identity_groups.py",
         "backend/app/identity_read/explanations.py",
-        "backend/app/schemas/identity_groups.py",
-        "backend/app/services/identity_read_export_service.py",
+            "backend/app/schemas/identity_groups.py",
+            "backend/app/schemas/identity_group_reviews.py",
+            "backend/app/services/identity_group_export_service.py",
+            "backend/app/services/identity_group_presentation.py",
+            "backend/app/services/identity_group_review_service.py",
+            "backend/app/services/identity_read_export_service.py",
         "backend/app/services/identity_read_xlsx_export_service.py",
         "backend/app/services/scan_runner.py",
         "backend/app/services/scan_service.py",

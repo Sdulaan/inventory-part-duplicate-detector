@@ -21,6 +21,11 @@ from app.services.export_service import sanitize_csv_cell
 from app.services.identity_group_review_export_service import (
     reviewed_identity_decisions_to_csv,
 )
+from app.services.identity_group_presentation import (
+    REQUIRES_HUMAN_REVIEW,
+    system_candidate_label,
+    system_evidence_tier,
+)
 from app.services.identity_read_service import IdentityReadService
 from app.services.canonical_record_service import load_scan_record_catalog
 
@@ -29,6 +34,7 @@ SYSTEM_GROUP_EXPORT_FIELDS = [
     "export_contract_version", "scan_id", "projection_contract",
     "source_projection_run_id", "source_orchestration_run_id",
     "source_resolution_run_id", "group_key", "group_reference", "group_status",
+    "candidate_display_label", "review_requirement", "system_evidence_tier",
     "validation_mode", "member_count", "member_order", "record_id",
     "stable_record_reference", "source_row_reference", "part_no", "description",
     "site_or_contract", "uom", "product_category", "hsn_sac",
@@ -133,6 +139,9 @@ def authority_selected_system_group_rows(db, scan_id: int):
                 "group_key": group_key,
                 "group_reference": group.versioned_group_key.group_reference,
                 "group_status": group.status.value,
+                "candidate_display_label": system_candidate_label(group.status.value),
+                "review_requirement": REQUIRES_HUMAN_REVIEW,
+                "system_evidence_tier": system_evidence_tier(group.status.value),
                 "validation_mode": group.validation_mode.value,
                 "member_count": group.member_count,
                 "member_order": member.member_order,

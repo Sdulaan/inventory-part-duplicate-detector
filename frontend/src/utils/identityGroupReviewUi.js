@@ -2,16 +2,16 @@ export const GROUP_REVIEW_DECISIONS = [
   ['CONFIRM_ALL_AS_ONE', 'Confirm as same item'],
   ['CONFIRM_SELECTED', 'Confirm selected records as same item'],
   ['SPLIT_PARTITIONS', 'Split into separate identity sets'],
-  ['KEEP_ALL_SEPARATE', 'Reject duplicate hypothesis'],
+  ['KEEP_ALL_SEPARATE', 'Reject candidate group'],
   ['UNSURE', 'Defer decision'],
 ]
 
 const REVIEW_LABELS = {
-  CONFIRM_ALL_AS_ONE: 'Reviewed — all confirmed as one identity',
-  CONFIRM_SELECTED: 'Reviewed — selected records confirmed as one identity',
-  SPLIT_PARTITIONS: 'Reviewed — split into identity sets',
-  KEEP_ALL_SEPARATE: 'Reviewed — rejected and kept separate',
-  UNSURE: 'Reviewed — deferred / unsure',
+  CONFIRM_ALL_AS_ONE: 'Human Confirmed Same-Identity Group',
+  CONFIRM_SELECTED: 'Human Confirmed Same-Identity Group',
+  SPLIT_PARTITIONS: 'Human Reviewed - Split into Identity Sets',
+  KEEP_ALL_SEPARATE: 'Human Rejected Candidate',
+  UNSURE: 'Review Deferred',
 }
 
 const DECISION_PRESENTATION = {
@@ -31,9 +31,9 @@ const DECISION_PRESENTATION = {
     consequence: 'Creates the reviewed identity sets shown below and keeps those sets separate.',
   },
   KEEP_ALL_SEPARATE: {
-    label: 'Reject duplicate hypothesis',
+    label: 'Reject candidate group',
     secondary: 'Keep these records separate.',
-    consequence: 'No reviewed duplicate set is created.',
+    consequence: 'No reviewed same-identity set is created.',
   },
   UNSURE: {
     label: 'Defer decision',
@@ -79,17 +79,17 @@ export function reviewDecisionOutcome(review, memberCount = 0) {
   }
   if (review.decision_type === 'KEEP_ALL_SEPARATE') return {
     title: 'Rejected — keep separate',
-    effect: 'No reviewed duplicate set was created; the records remain separate.',
+    effect: 'No reviewed same-identity set was created; the records remain separate.',
   }
   if (review.decision_type === 'UNSURE') return {
     title: 'Deferred',
-    effect: 'No reviewed duplicate set was created; the group remains unresolved for later review.',
+    effect: 'No reviewed same-identity set was created; the group remains unresolved for later review.',
   }
   return { title: 'Unknown saved decision', effect: 'Review history contains a decision this interface cannot describe.' }
 }
 
 export function groupReviewLabel(state) {
-  if (!state?.reviewed) return 'Not reviewed'
+  if (!state?.reviewed) return 'Requires Human Review'
   return REVIEW_LABELS[state.current_decision_type]
     || 'Reviewed — unknown decision'
 }

@@ -7,7 +7,9 @@ import GroupReviewPanel from '../components/GroupReviewPanel'
 import LlmStatus from '../components/LlmStatus'
 import SystemExplanation from '../components/SystemExplanation'
 import {
-  groupStatusLabel,
+  groupAuthorityLabel,
+  groupEvidenceTierLabel,
+  groupReviewAuthorityLabel,
   identityReadErrorState,
   identityReadExportTargets,
   validationCoverageLabel,
@@ -85,7 +87,7 @@ function GroupDetail({ scanId, detail, onReviewSaved }) {
       <p><b>Projection-safe identity:</b> <code>{detail.versioned_group_key}</code></p>
       <MemberTable members={detail.members || []} />
     </section>
-    <SystemExplanation explanation={detail.system_explanation} />
+    <SystemExplanation explanation={detail.system_explanation} heading="Why the system suggested this group" />
     <EvidenceSummary detail={detail} />
     <GroupReviewPanel scanId={scanId} detail={detail} onSaved={onReviewSaved} />
     <AdvisoryEligibility scanId={scanId} detail={detail} />
@@ -93,25 +95,26 @@ function GroupDetail({ scanId, detail, onReviewSaved }) {
 }
 
 function IdentityGroups({ scanId, result, detailByKey, loadingKey, detailError, toggleDetail, onReviewSaved }) {
-  if (!result) return <p className="empty">Loading authoritative identity groups…</p>
-  if (!result.items.length) return <p className="empty">This ready authoritative snapshot contains zero potential duplicate groups.</p>
+  if (!result) return <p className="empty">Loading system-suggested candidate groups…</p>
+  if (!result.items.length) return <p className="empty">This ready result contains zero system-suggested candidate groups.</p>
   return <div className="groups">{result.items.map(group => {
     const key = group.versioned_group_key
     const detail = detailByKey[key]
     const expanded = loadingKey === key || Boolean(detail) || detailError?.id === key
     return <article className="group-card" key={key}>
-      <div className="group-head"><div><p className="eyebrow">Potential duplicate identity</p>
-        <h2>{groupStatusLabel(group.group_status)}</h2>
+      <div className="group-head"><div><p className="eyebrow">System-suggested candidate group</p>
+        <h2>{groupAuthorityLabel(group.group_status, group.review_state)}</h2>
         <small>{group.group_size} records · {validationCoverageLabel(group.validation_coverage)}</small>
-      </div><span className={`badge group-status ${group.group_status}`}>{groupStatusLabel(group.group_status)}</span></div>
+      </div><span className={`badge group-status ${group.group_status}`}>{groupReviewAuthorityLabel(group.review_state)}</span></div>
+      <p><b>System evidence tier:</b> {groupEvidenceTierLabel(group.group_status)}</p>
       <p><b>Validation:</b> {validationModeLabel(group.validation_mode)}</p>
       <SystemExplanation explanation={group.system_explanation} compact />
-      <p><b>Human review:</b> {groupReviewLabel(group.review_state)}</p>
+      <p><b>Human authority:</b> {groupReviewLabel(group.review_state)}</p>
       <div className="member-preview" aria-label={`${group.group_size}-record identity-set preview`}>
         {(group.member_preview || []).map(member => <span key={member.stable_record_reference}><b>{member.part_no}</b> — {member.description}<small>{member.contract || 'No site / contract'} · {member.uom || 'No UOM'}</small></span>)}
         {group.group_size > (group.member_preview || []).length && <span>+ {group.group_size - group.member_preview.length} more member(s)</span>}
       </div>
-      <p>This result is one 2..N member identity hypothesis, not a collection of A/B decisions.</p>
+      <p>This is an advisory 2..N member candidate group. No records are automatically merged, deleted, or changed in IFS.</p>
       <button type="button" className="link" aria-expanded={expanded} onClick={() => toggleDetail(key, expanded)}>
         {expanded ? 'Close identity-set details' : `Open all ${group.group_size} members`}
       </button>
@@ -281,7 +284,7 @@ function ValidScanResults({ id }) {
     )) {
       setExportFeedback({
         kind: 'empty',
-        message: 'No confirmed duplicate sets are available yet. Review and confirm groups before exporting operational results.',
+        message: 'No human-confirmed same-identity sets are available yet. Review candidates before exporting operational results.',
       })
       return
     }
@@ -317,15 +320,19 @@ function ValidScanResults({ id }) {
     />
 
     <section className="panel identity-summary" aria-labelledby="identity-summary-heading">
-      <div className="group-head"><div><p className="eyebrow">Identity-set summary</p><h2 id="identity-summary-heading">Potential duplicate identities</h2></div>
+      <div className="group-head"><div><p className="eyebrow">Advisory candidate workflow</p><h2 id="identity-summary-heading">System-Suggested Candidate Groups</h2></div>
         {summary?.projection && <div className="snapshot-meta"><b>Authoritative identity projection</b><span>{summary.projection.projection_contract}</span><span>Source run: {summary.projection.source_projection_run_id}</span></div>}
       </div>
+      <p className="banner">The system identifies records that may represent the same inventory identity. Suggestions require human review; no records are automatically merged, deleted, or changed in IFS.</p>
       {summaryError ? <div className={`error identity-${summaryError.kind}`} role="alert"><b>{summaryError.title}</b><p>{summaryError.message}</p></div> :
         !summary ? <p>Loading authoritative identity summary…</p> : <div className="cards compact-cards">
           <article><label>Records scanned</label><strong>{summary.canonical_record_count}</strong></article>
-          <article><label>Potential duplicate identities</label><strong>{summary.group_count}</strong><small>System hypotheses, not confirmed duplicates</small></article>
-          <article><label>Likely duplicate groups</label><strong>{summary.likely_group_count}</strong></article>
-          <article><label>Needs review</label><strong>{summary.review_group_count}</strong></article>
+          <article><label>System-Suggested Candidate Groups</label><strong>{summary.group_count}</strong><small>Advisory candidates requiring human review</small></article>
+          <article><label>Stronger Evidence</label><strong>{summary.likely_group_count}</strong><small>Not a probability or confirmation</small></article>
+          <article><label>Review Evidence</label><strong>{summary.review_group_count}</strong><small>Requires Human Review</small></article>
+          <article><label>Human Confirmed Groups</label><strong>{reviewedExportState.affirmative_groups ?? '…'}</strong></article>
+          <article><label>Human Rejected Candidates</label><strong>{reviewedExportState.rejected_groups ?? '…'}</strong></article>
+          <article><label>Review Deferred / Unreviewed</label><strong>{reviewedExportState.status === 'ready' ? (reviewedExportState.deferred_groups + reviewedExportState.unreviewed_groups) : '…'}</strong></article>
           <article><label>Conflicts</label><strong>{summary.conflict_count}</strong></article>
           <article><label>Deferred / unresolved</label><strong>{summary.deferred_count}</strong></article>
           <article><label>Not safely assigned</label><strong>{summary.unassigned_count}</strong><small>Not confirmed unique</small></article>
@@ -333,13 +340,13 @@ function ValidScanResults({ id }) {
     </section>
 
     {view !== 'pairs' && <div className="view-toggle" role="tablist" aria-label="Identity result views">
-      <button type="button" role="tab" aria-selected={view === 'groups'} className={view === 'groups' ? '' : 'secondary'} onClick={() => setView('groups')}>Identity groups ({summary?.group_count ?? '…'})</button>
+      <button type="button" role="tab" aria-selected={view === 'groups'} className={view === 'groups' ? '' : 'secondary'} onClick={() => setView('groups')}>Candidate groups ({summary?.group_count ?? '…'})</button>
       <button type="button" role="tab" aria-selected={view === 'outcomes'} className={view === 'outcomes' ? '' : 'secondary'} onClick={() => setView('outcomes')}>Conflicts &amp; deferred ({(summary?.conflict_count || 0) + (summary?.deferred_count || 0)})</button>
       <details className="advanced-diagnostics"><summary>Advanced diagnostics</summary><button type="button" className="secondary" onClick={() => setView('pairs')}>Open legacy pair diagnostics</button></details>
     </div>}
 
     {view === 'groups' && <><section className="panel group-filters" aria-label="Identity group filters">
-      <label>Status<select value={statusFilter} onChange={event => { setStatusFilter(event.target.value); setPage(0) }}><option value="">All accepted statuses</option><option value="LIKELY_DUPLICATE_GROUP">Likely duplicate group</option><option value="POSSIBLE_DUPLICATE_GROUP_REVIEW">Possible duplicate group — review</option></select></label>
+      <label>System evidence tier<select value={statusFilter} onChange={event => { setStatusFilter(event.target.value); setPage(0) }}><option value="">All evidence tiers</option><option value="LIKELY_DUPLICATE_GROUP">Stronger deterministic evidence</option><option value="POSSIBLE_DUPLICATE_GROUP_REVIEW">Needs additional review</option></select></label>
       <label>Minimum group size<input type="number" min="2" value={minimumSize} onChange={event => { setMinimumSize(event.target.value); setPage(0) }} /></label>
       <label>Maximum group size<input type="number" min="2" value={maximumSize} onChange={event => { setMaximumSize(event.target.value); setPage(0) }} /></label>
     </section>

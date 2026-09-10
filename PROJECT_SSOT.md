@@ -1,5 +1,18 @@
 # Group-first inventory identity project SSOT
 
+## Demo-safe advisory product is ready for rehearsal
+
+`DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`: the group-first UI, system CSV,
+and bounded XLSX export now present unreviewed results as `Potential
+Same-Identity Group` plus `Requires Human Review`. Confirmed, rejected, and
+deferred human decisions visually override the system suggestion. The workbook
+uses `Summary`, `Candidate Groups`, and `Group Data` with explicit system/human
+authority separation and no unsupported probability, accuracy, or confidence
+percentage. Runtime detector semantics and `GF5_PARTITION_POLICY_V1` are frozen
+and unchanged; provider calls are 0. Curated data must be labelled
+`DEMONSTRATION / WALKTHROUGH EXAMPLES`, while real rows remain unvalidated
+candidates. Full verification passed. `NEXT = FINAL_DEMO_REHEARSAL`.
+
 ## R18J-0 exhausts existing Strong evidence and defines the demo envelope
 
 `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`: 67 observations from all

@@ -4,6 +4,7 @@ import io
 
 import pytest
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from sqlalchemy import text
 
 from app.db.models import DuplicateScan
@@ -75,25 +76,31 @@ def test_xlsx1_to_xlsx15_workbook_contract_membership_merges_and_review(db, clie
         f'attachment; filename="scan-{scan.id}-system-groups.xlsx"'
     )
     workbook = _workbook(response.content)
-    assert workbook.sheetnames == ["Summary", "Duplicate Groups", "Group Data"]
+    assert workbook.sheetnames == ["Summary", "Candidate Groups", "Group Data"]
 
     summary = {
         row[0].value: row[1].value
         for row in workbook["Summary"].iter_rows(min_row=2, max_col=2)
     }
-    assert summary["Notice"] == WORKBOOK_NOTICE
-    assert summary["Authority"] == "System-generated / analytical"
-    assert summary["Human confirmation"] == "Not implied"
+    assert summary["Purpose"] == "Inventory identity review candidate report"
+    assert summary["Important"] == WORKBOOK_NOTICE
+    assert summary["Human authority"] == (
+        "Confirmed, rejected, or deferred human decisions override the system suggestion."
+    )
     assert summary["Input record count"] == snapshot.canonical_record_count
-    assert summary["Group count"] == snapshot.group_count
+    assert summary["System-Suggested Candidate Groups"] == snapshot.group_count
+    assert summary["Human Confirmed Groups"] == 0
+    assert summary["Review Deferred / Unreviewed"] == 1
 
-    grouped = workbook["Duplicate Groups"]
+    grouped = workbook["Candidate Groups"]
     flat = workbook["Group Data"]
-    assert tuple(cell.value for cell in grouped[1]) == ALL_COLUMNS
+    assert tuple(cell.value for cell in grouped[1]) == GROUP_COLUMNS
     assert tuple(cell.value for cell in flat[1]) == ALL_COLUMNS
     assert grouped.freeze_panes == "A2" and flat.freeze_panes == "A2"
     assert flat.auto_filter.ref is None
-    assert flat.tables["SystemGroupData"].ref == f"A1:T{flat.max_row}"
+    assert flat.tables["SystemGroupData"].ref == (
+        f"A1:{get_column_letter(len(ALL_COLUMNS))}{flat.max_row}"
+    )
 
     csv_rows = list(csv.DictReader(io.StringIO(csv_response.text)))
     flat_rows = _rows(flat)
@@ -102,18 +109,46 @@ def test_xlsx1_to_xlsx15_workbook_contract_membership_merges_and_review(db, clie
     assert {
         str(row[-1]).split(" / ")[-1] for row in flat_rows
     } == {row["stable_record_reference"] for row in csv_rows}
-    assert {row[0] for row in flat_rows} == {"DG-000001"}
+    assert {row[0] for row in flat_rows} == {"CG-000001"}
     assert {row[4] for row in flat_rows} == {group.member_count}
-    assert {row[5] for row in flat_rows} == {"Reviewed - unsure"}
-    assert "human review is required" in flat_rows[0][3]
-    assert "human-confirmed" not in flat_rows[0][3]
+    assert {row[2] for row in flat_rows} == {"Review Deferred"}
+    assert {row[3] for row in flat_rows} == {"Review Evidence"}
+    assert {row[7] for row in flat_rows} == {"Deferred for later review"}
+    workbook_text = " ".join(
+        str(cell.value)
+        for sheet in workbook.worksheets
+        for row in sheet.iter_rows()
+        for cell in row
+        if cell.value is not None
+    )
+    assert not any(
+        phrase in workbook_text.lower()
+        for phrase in (
+            "confirmed duplicate",
+            "high-confidence duplicate",
+            "group confidence index",
+            "confidence %",
+        )
+    )
+    assert "human review is required" in flat_rows[0][6].lower()
+    assert grouped.max_row == 2
+    assert not grouped.merged_cells.ranges
 
-    expected_end = 1 + group.member_count
-    for column in "ABCDEF":
-        assert f"{column}2:{column}{expected_end}" in {
-            str(item) for item in grouped.merged_cells.ranges
-        }
-    assert all(item.min_col <= len(GROUP_COLUMNS) for item in grouped.merged_cells.ranges)
+
+def test_unreviewed_xlsx_candidate_requires_human_review(db, client):
+    scan = review_scan(db)
+    workbook = _workbook(client.get(
+        f"/api/scans/{scan.id}/identity-read/system-groups/export.xlsx"
+    ).content)
+    summary = {
+        row[0].value: row[1].value
+        for row in workbook["Summary"].iter_rows(min_row=2, max_col=2)
+    }
+    candidate_rows = _rows(workbook["Candidate Groups"])
+
+    assert summary["Review Deferred / Unreviewed"] == len(candidate_rows)
+    assert {row[2] for row in candidate_rows} == {"Requires Human Review"}
+    assert {row[7] for row in candidate_rows} == {"Not yet reviewed"}
 
 
 def test_xlsx9_xlsx13_repeated_generation_is_semantically_deterministic(db):
@@ -128,12 +163,12 @@ def test_xlsx9_xlsx13_repeated_generation_is_semantically_deterministic(db):
     assert semantic_rows[0] == semantic_rows[1] == semantic_rows[2]
     assert generated[0].sheetnames == generated[1].sheetnames == generated[2].sheetnames
     merged_ranges = [
-        tuple(sorted(str(item) for item in book["Duplicate Groups"].merged_cells.ranges))
+        tuple(sorted(str(item) for item in book["Candidate Groups"].merged_cells.ranges))
         for book in generated
     ]
     assert merged_ranges[0] == merged_ranges[1] == merged_ranges[2]
-    assert semantic_rows[0][1][0] == "DG-000001"
-    assert semantic_rows[0][1][3] == reason_for_group_status(
+    assert semantic_rows[0][1][0] == "CG-000001"
+    assert semantic_rows[0][1][6] == reason_for_group_status(
         "POSSIBLE_DUPLICATE_GROUP_REVIEW"
     )
 
@@ -151,9 +186,10 @@ def test_xlsx7_three_member_group_merges_full_group_range_only(db, monkeypatch):
     )
     sheet = _workbook(
         authority_selected_system_groups_to_xlsx(db, 21)
-    )["Duplicate Groups"]
+    )["Candidate Groups"]
     ranges = {str(item) for item in sheet.merged_cells.ranges}
-    assert {f"{column}2:{column}4" for column in "ABCDEF"} == ranges
+    assert ranges == set()
+    assert sheet.max_row == 2
 
 
 def test_xlsx21_formula_like_inventory_values_remain_literal_and_source_immutable(
@@ -186,7 +222,7 @@ def test_xlsx21_formula_like_inventory_values_remain_literal_and_source_immutabl
     response = client.get("/api/scans/21/identity-read/system-groups/export.xlsx")
     assert response.status_code == 200
     row = _workbook(response.content)["Group Data"][2]
-    for index, expected in ((6, "=1+1"), (7, "+ABC"), (8, "-XYZ"), (9, "@PART")):
+    for index, expected in ((9, "=1+1"), (10, "+ABC"), (11, "-XYZ"), (12, "@PART")):
         assert row[index].value == expected
         assert row[index].data_type == "s"
     assert original_member.part_no != changed_member.part_no

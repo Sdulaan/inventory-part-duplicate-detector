@@ -374,7 +374,7 @@ def test_progressive_v2_detail_api_preserves_two_of_three_without_synthetic_edge
     assert body["validation_coverage"]["possible_internal_pair_count"] == 3
     assert body["validation_coverage"]["missing_nonrequired_pair_count"] == 1
     assert len(body["internal_evidence"]) == 2
-    assert body["system_explanation"]["headline"] == "Possible duplicate identity - human review required"
+    assert body["system_explanation"]["headline"] == "Potential Same-Identity Group - Requires Human Review"
     assert "2 of 2 evaluated relationships" in body["system_explanation"]["summary"]
     assert any(
         "1 non-required relationship was not evaluated" in point

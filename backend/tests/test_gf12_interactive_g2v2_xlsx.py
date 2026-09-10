@@ -9,6 +9,7 @@ import zipfile
 from xml.etree import ElementTree
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.cell_range import CellRange
 
 from app.core.config import Settings
@@ -213,7 +214,7 @@ def test_excel_table_range_columns_name_and_relationship_are_valid(db, client):
     package = _package(payload)
     workbook = load_workbook(io.BytesIO(payload), data_only=False)
     flat = workbook["Group Data"]
-    expected_ref = f"A1:T{flat.max_row}"
+    expected_ref = f"A1:{get_column_letter(len(flat[1]))}{flat.max_row}"
     assert package["table"].attrib["ref"] == expected_ref
     assert package["table"].attrib["name"] == "SystemGroupData"
     assert package["table"].attrib["displayName"] == "SystemGroupData"
@@ -221,9 +222,9 @@ def test_excel_table_range_columns_name_and_relationship_are_valid(db, client):
 
     columns_node = package["table"].find(f"{{{_MAIN_NS}}}tableColumns")
     columns = columns_node.findall(f"{{{_MAIN_NS}}}tableColumn")
-    assert int(columns_node.attrib["count"]) == len(columns) == 20
-    assert [int(item.attrib["id"]) for item in columns] == list(range(1, 21))
-    assert len({item.attrib["name"] for item in columns}) == 20
+    assert int(columns_node.attrib["count"]) == len(columns) == len(flat[1])
+    assert [int(item.attrib["id"]) for item in columns] == list(range(1, len(flat[1]) + 1))
+    assert len({item.attrib["name"] for item in columns}) == len(flat[1])
     assert tuple(item.attrib["name"] for item in columns) == tuple(
         cell.value for cell in flat[1]
     )
@@ -235,7 +236,7 @@ def test_r6_19_merged_ranges_are_valid_and_non_overlapping(db, client):
         f"/api/scans/{scan_id}/identity-read/system-groups/export.xlsx"
     ).content
     workbook = load_workbook(io.BytesIO(payload), data_only=False)
-    ranges = [CellRange(str(item)) for item in workbook["Duplicate Groups"].merged_cells]
+    ranges = [CellRange(str(item)) for item in workbook["Candidate Groups"].merged_cells]
     for index, left in enumerate(ranges):
         assert left.min_row >= 2 and left.min_col <= 6
         for right in ranges[index + 1:]:

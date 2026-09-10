@@ -106,7 +106,7 @@ test('N14 server and network recovery avoid unsupported persistence claims', () 
 })
 
 test('N15 zero-group completed results remain a valid non-error state', () => {
-  assert.match(results, /ready authoritative snapshot contains zero potential duplicate groups/)
+  assert.match(results, /ready result contains zero system-suggested candidate groups/)
   assert.doesNotMatch(results, /duplicate-free/i)
 })
 
