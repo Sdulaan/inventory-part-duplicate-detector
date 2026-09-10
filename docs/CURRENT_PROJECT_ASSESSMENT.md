@@ -1,5 +1,18 @@
 # Current project assessment
 
+## R18G-C holdout validation failed the generalized-defect gate
+
+The N=16 holdout was revealed and consumed for group validation. Six of eight
+accepted Likely hypotheses received Medium-confidence NOT ONE judgments; this
+repeated Likely-group pattern is a critical quality defect despite zero
+High-confidence Likely rejections, cannot-link violations, or duplicate accepted
+memberships. Three of five Review hypotheses were NOT ONE and remain Review
+burden, not merge failures. Runtime and `GF5_PARTITION_POLICY_V1` are unchanged.
+`NEXT = ARCHITECT_REVIEW_HOLDOUT_DEFECT`; R19A is not authorized.
+
+Lower sections retain stage-time history. Their earlier unseen-label state is
+superseded by the consumed R18G-C status above.
+
 ## R18H current GF5 policy frozen
 
 `GF5_PARTITION_POLICY_V1` is frozen with the already-running objective

@@ -1,5 +1,14 @@
 # Group-first identity migration roadmap
 
+## R18G-C failure overlay
+
+R18G-C consumed the 16-group holdout and classified
+`R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT` after 6 of 8 accepted
+Likely hypotheses were human-rejected at Medium confidence. Stop the normal
+graduation path. Do not tune from the consumed holdout or start R19A. The only
+next step is `ARCHITECT_REVIEW_HOLDOUT_DEFECT`; any later independent validation
+after a correction requires a new holdout.
+
 ## R18H policy-freeze overlay
 
 R18H is `R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`.

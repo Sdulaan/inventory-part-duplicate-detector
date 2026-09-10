@@ -1,5 +1,18 @@
 # Group-first inventory identity project SSOT
 
+## R18G-C consumed holdout reveals a critical Likely-group defect
+
+`R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`: the consumed N=16
+group holdout found 6 Medium-confidence human NOT ONE judgments among 8 frozen
+accepted Likely groups. Hard cannot-link and disjoint-membership invariants both
+passed, and Review noise is not treated as an automatic merge failure, but the
+repeated client-visible Likely rejection pattern fails graduation Gate E.
+`GF5_PARTITION_POLICY_V1` and runtime remain frozen/unchanged; no post-reveal
+tuning is authorized. `NEXT = ARCHITECT_REVIEW_HOLDOUT_DEFECT`.
+
+The chronological sections below preserve their stage-time facts; any statement
+that labels were unseen is historical and superseded by this consumed status.
+
 ## R18H current GF5 partition policy frozen
 
 `R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`: `GF5_PARTITION_POLICY_V1` freezes

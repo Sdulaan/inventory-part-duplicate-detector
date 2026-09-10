@@ -1,5 +1,14 @@
 # R18H current GF5 partition-policy freeze
 
+## R18G-C consumption notice
+
+The holdout described below is no longer sealed or unseen. It was first opened
+at `2026-09-10T05:56:41.528097Z` and is now
+`CONSUMED_FOR_GF5_GROUP_VALIDATION`. R18G-C classified
+`R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`; no R18G-C tuning changed
+the frozen policy. `NEXT = ARCHITECT_REVIEW_HOLDOUT_DEFECT`, and a future
+post-correction independent claim requires a new holdout.
+
 Classification: `R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`
 
 Next: `R18G_C_SEALED_HOLDOUT_VALIDATION`
@@ -74,10 +83,11 @@ that quality/governance debt.
 
 ## Holdout firewall and reveal contract
 
-The sealed 16-group holdout was not opened, parsed, copied, hashed for human
-content, inspected, evaluated, or used to derive labels in R18H. It remains
-unseen. R18G-C is authorized only after the R18H commit exists, policy docs/tests
-are frozen, runtime is confirmed unchanged, and the working tree is verified.
+The 16-group holdout was not opened, parsed, copied, hashed for human content,
+inspected, evaluated, or used to derive labels in R18H. At R18H closeout it
+remained unseen. R18G-C was authorized only after the R18H commit existed,
+policy docs/tests were frozen, runtime was confirmed unchanged, and the working
+tree was verified.
 
 R18G-C must test whole-group SAME/NOT ONE/INSUFFICIENT, human-mixed accepted
 groups, Likely-versus-Review behavior, partition-sensitive cases, cannot-link

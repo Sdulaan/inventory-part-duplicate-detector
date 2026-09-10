@@ -1,5 +1,17 @@
 # GF-12C1 showable product acceptance checklist
 
+## R18G-C holdout graduation blocker
+
+Demo-productization graduation is blocked. The consumed N=16 group holdout
+preserved cannot-link and membership safety but found a repeated quality pattern:
+6 of 8 frozen accepted Likely groups were judged NOT ONE at Medium confidence.
+This fails the generalized-defect gate and is not ordinary Review noise.
+Classification is `R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`; next
+is `ARCHITECT_REVIEW_HOLDOUT_DEFECT`, with no post-reveal tuning in R18G-C.
+
+Lower sections are historical snapshots; any earlier unseen-label statement is
+superseded by this consumed holdout result.
+
 ## R18H GF5 policy freeze
 
 `R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN` reconciles the ADR to the unchanged
