@@ -1,5 +1,17 @@
 # Demo-safe productization
 
+## Final rehearsal result
+
+The productization passed its exact final rehearsal as
+`FINAL_DEMO_REHEARSAL_GO`. A provider-none live 17-row synthetic scan completed
+in 713 ms, all review authority states persisted correctly, the reviewed CSV
+contained only the confirmed set, and the XLSX opened with correct counts,
+linkage, and safe wording. Focused backend tests (76), frontend tests (153), and
+the production build passed. The live walkthrough is primary; a pre-completed
+synthetic result and known-good XLSX are fallbacks. Runtime detector/GF5
+semantics remain unchanged and no quality or production-readiness claim is
+created.
+
 Classification: `DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`
 
 Next: `FINAL_DEMO_REHEARSAL`

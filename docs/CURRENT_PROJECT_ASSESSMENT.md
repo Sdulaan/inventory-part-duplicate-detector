@@ -1,5 +1,17 @@
 # Current project assessment
 
+## Final advisory demo rehearsal is GO
+
+The exact 17-row synthetic, provider-none, non-Docker workflow passed live in a
+disposable database: validation, scan, G2_V2 summary/detail, Confirm/Reject/
+Defer persistence, refresh, reviewed CSV authority, XLSX export, and workbook
+inspection. Focused backend tests (76), frontend tests (153), and the production
+build pass. The live scan completed in 713 ms and is approved as primary, with
+a local pre-completed synthetic result and hash-verified XLSX as fallbacks.
+Classification: `FINAL_DEMO_REHEARSAL_GO`. This changes no detector/GF5
+semantics and makes no accuracy or production-readiness claim; provider calls
+are 0.
+
 ## Demo-safe productization is ready for rehearsal
 
 The product now tells the bounded truth established by R18J-0: system groups

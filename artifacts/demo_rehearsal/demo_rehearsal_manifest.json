@@ -1,0 +1,78 @@
+{
+  "manifest_version": "final-demo-rehearsal-v1",
+  "rehearsal_timestamp": "2026-09-10T17:07:50.2339237+05:30",
+  "rehearsal_baseline_head": "6ec74d42a24797de19dafcf312f08b7c958aa299",
+  "branch": "llm-assisted-mvp",
+  "protected_tag": {
+    "name": "deterministic-demo-v1",
+    "commit": "d510cf3c18b3a8448d0f79be3e59c398efb32eae"
+  },
+  "classification": "FINAL_DEMO_REHEARSAL_GO",
+  "dataset": {
+    "path": "data/llm_assisted_mvp_demo.csv",
+    "label": "DEMONSTRATION / WALKTHROUGH EXAMPLES",
+    "records": 17,
+    "sha256": "af23e6ad6855a545cbb7258da95ff1bc4fca9fa8a149042838ed689d15cddebd"
+  },
+  "rehearsal_result": {
+    "scan_id_in_disposable_database": 1,
+    "projection": "G2_V2",
+    "system_suggested_groups": 4,
+    "stronger_evidence_groups": 1,
+    "review_evidence_groups": 3,
+    "conflicts": 3,
+    "deferred_work_units": 0,
+    "unassigned_records": 8,
+    "human_confirmed_groups": 1,
+    "human_rejected_candidates": 1,
+    "review_deferred_groups": 1,
+    "unreviewed_groups": 1,
+    "reviewed_export_member_rows": 3
+  },
+  "timings_ms": {
+    "backend_frontend_health_round_trip": 341,
+    "frontend_vite_ready": 452,
+    "validation": 41,
+    "upload_and_synchronous_scan": 713,
+    "summary_and_four_group_details": 196,
+    "confirm_review": 88,
+    "reject_review": 84,
+    "defer_review": 79,
+    "xlsx_export": 93,
+    "xlsx_open_and_structural_inspection": 613,
+    "precompleted_result_reopen": 249
+  },
+  "xlsx": {
+    "path": "artifacts/demo_rehearsal/DEMONSTRATION_WALKTHROUGH_EXAMPLES_system_groups.xlsx",
+    "sha256": "77ca8d60156e913c2c7011a33adc66363d8a85ac5ccd7aa3ec56d7ecfa5b3057",
+    "bytes": 11797,
+    "sheets": ["Summary", "Candidate Groups", "Group Data"],
+    "candidate_rows": 4,
+    "member_rows": 9,
+    "formula_cells": 0,
+    "unsafe_terms_found": []
+  },
+  "verification": {
+    "focused_backend_tests": "76 passed",
+    "frontend_tests": "153 passed",
+    "frontend_production_build": "PASS - Vite 8.0.16, 42 modules",
+    "live_http_smoke": "PASS",
+    "browser_route_refresh": "PASS",
+    "precompleted_result_restart_and_reopen": "PASS",
+    "provider_calls": 0
+  },
+  "fallback": {
+    "precompleted_result_database": "artifacts/demo_rehearsal/DEMONSTRATION_WALKTHROUGH_EXAMPLES.sqlite3",
+    "precompleted_database_sha256": "176960c173aabf08d3758e8236383bf168659605a0310e5397e658f36cace4d0",
+    "precompleted_database_bytes": 1581056,
+    "database_is_local_and_git_ignored": true,
+    "known_good_xlsx_present": true,
+    "small_demo_fixture_present": true,
+    "startup_commands_documented": true
+  },
+  "runtime_detector_changed": false,
+  "gf5_partition_policy_changed": false,
+  "provider_calls": 0,
+  "suggested_future_tag": "advisory-demo-ready-v1",
+  "tag_created_or_moved": false
+}

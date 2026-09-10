@@ -1,5 +1,13 @@
 # Final demo rehearsal runbook
 
+Final rehearsal classification: `FINAL_DEMO_REHEARSAL_GO`.
+
+Recommended path: use the bounded 17-row synthetic live scan as primary. Keep
+pre-completed scan 1 from the local ignored rehearsal database and the
+hash-verified known-good XLSX ready as immediate fallbacks. See
+`docs/FINAL_DEMO_REHEARSAL_REPORT.md` for timings, the spoken script, Q&A, and
+failure recovery.
+
 Status: authorized after `DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`.
 
 ## Before the rehearsal

@@ -1,5 +1,16 @@
 # GF-12C1 showable product acceptance checklist
 
+## Final demo rehearsal acceptance
+
+`FINAL_DEMO_REHEARSAL_GO`: all final advisory-demo gates passed on the approved
+17-row synthetic fixture. The live current-product scan, group page, at least
+three evidence explanations, Confirm/Reject/Defer authority, refresh, reviewed
+CSV, and XLSX all completed. The workbook cleanly separates four system
+suggestions from one confirmation, one rejection, one deferred decision, and
+one unreviewed candidate. Unsafe certainty wording and unsupported percentages
+were absent. The live path is primary; a pre-completed result and known-good
+XLSX are ready. Runtime/GF5 are unchanged and provider calls are 0.
+
 ## Demo-safe presentation acceptance passed
 
 All demo-safety gates pass. Unreviewed internal Likely and Review statuses are

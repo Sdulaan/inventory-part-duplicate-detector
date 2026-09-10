@@ -1,5 +1,17 @@
 # Group-first inventory identity project SSOT
 
+## Final advisory demo rehearsal passed
+
+`FINAL_DEMO_REHEARSAL_GO`: the provider-free, non-Docker 17-row synthetic live
+flow completed from validation and current-product scan through G2_V2 results,
+three evidence explanations, Confirm/Reject/Defer, browser refresh, reviewed
+CSV, and the client-readable XLSX. The live scan completed in under one second,
+so it is reliable enough to be primary; a pre-completed synthetic result and
+known-good XLSX are ready as fallbacks. Safe terminology and system/human
+authority separation passed with no unsupported percentage claim. Runtime and
+`GF5_PARTITION_POLICY_V1` remain unchanged; provider calls are 0. The advisory
+demo-safe product is frozen for demo.
+
 ## Demo-safe advisory product is ready for rehearsal
 
 `DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`: the group-first UI, system CSV,
