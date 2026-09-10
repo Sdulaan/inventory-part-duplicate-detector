@@ -1,5 +1,18 @@
 # Current project assessment
 
+## R18I causal diagnostic cannot prove a safe general rule
+
+The six rejected Likely cases and two accepted Likely controls are all
+two-member, complete-pairwise `ALL_STRONG` groups. Thus false-positive Strong
+evidence is the immediate mechanism, not GF5 objective selection. Four failures
+are case-level status-promotion errors and two depend on unavailable external
+knowledge, but the observable features overlap the positive controls. Shadow
+S1-S4 do nothing; S5 damages every accepted holdout control and 5/6 Development
+SAME Likely controls while missing one rejection. Classification is
+`R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`; runtime remains unchanged and `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`. A new independent holdout is required
+after any future runtime correction. R19A remains unauthorized.
+
 ## R18G-C holdout validation failed the generalized-defect gate
 
 The N=16 holdout was revealed and consumed for group validation. Six of eight

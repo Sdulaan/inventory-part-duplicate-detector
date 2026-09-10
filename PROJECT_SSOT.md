@@ -1,5 +1,18 @@
 # Group-first inventory identity project SSOT
 
+## R18I finds no safe general correction from the consumed holdout
+
+`R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`: all six rejected Likely groups are
+two-member `ALL_STRONG` hypotheses, as are both accepted Likely controls. The
+mechanical defect is a false-positive Strong pair in each rejection; GF5's
+frozen objective is not the primary cause, and the current all-Strong promotion
+rule is operating as specified. S1-S4 cannot separate cases, while a trusted
+path gate would downgrade both accepted holdout controls and 5/6 Development
+SAME Likely controls yet retain one failure. Runtime and
+`GF5_PARTITION_POLICY_V1` remain unchanged; provider calls are 0. The holdout is
+`CONSUMED_FOR_DIAGNOSTIC_USE`, and any future correction requires a new
+independent holdout. `NEXT = NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`.
+
 ## R18G-C consumed holdout reveals a critical Likely-group defect
 
 `R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`: the consumed N=16

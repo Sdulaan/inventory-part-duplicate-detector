@@ -1,5 +1,16 @@
 # R18G-C consumed group holdout validation
 
+## R18I diagnostic supersession
+
+R18I reclassified the consumed evidence as `CONSUMED_FOR_DIAGNOSTIC_USE` and
+localized all six Likely rejections to false-positive Strong edges in
+two-member `ALL_STRONG` groups. Both accepted Likely controls have the same
+topology, and no safe status-only or evidence boundary was proven. GF5 is
+`GF5_NOT_PRIMARY_CAUSE`, remains frozen, and runtime is unchanged.
+`R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`; `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`. A new independent holdout is required
+after any future runtime correction.
+
 Classification: `R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`
 
 Next: `ARCHITECT_REVIEW_HOLDOUT_DEFECT`

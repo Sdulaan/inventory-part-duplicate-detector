@@ -1,5 +1,15 @@
 # GF-12C1 showable product acceptance checklist
 
+## R18I diagnostic outcome
+
+Graduation remains blocked. R18I found that all failed and accepted holdout
+Likely groups share complete all-Strong two-member topology; a trusted-path
+gate over-corrects known positives and still misses one failure. No safe general
+runtime correction is proven, GF5 remains frozen, and provider calls are zero.
+`R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`; `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`. The consumed holdout cannot validate a
+future change, so a new independent holdout is mandatory after any correction.
+
 ## R18G-C holdout graduation blocker
 
 Demo-productization graduation is blocked. The consumed N=16 group holdout

@@ -1,5 +1,15 @@
 # Group-first identity migration roadmap
 
+## R18I diagnostic overlay
+
+R18I is `R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`. The consumed holdout localizes the
+mechanical failure to false-positive Strong pair evidence in six two-member
+groups, but no tested status or evidence feature separates those failures from
+known positives safely. GF5 remains frozen and runtime is unchanged. `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`; do not start R18J, R19A, LLM runtime,
+or XLSX-vNext. Any later correction must be validated on a new independent
+human-labelled holdout.
+
 ## R18G-C failure overlay
 
 R18G-C consumed the 16-group holdout and classified

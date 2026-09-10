@@ -1,5 +1,15 @@
 # R18H current GF5 partition-policy freeze
 
+## R18I causal finding
+
+R18I found `GF5_NOT_PRIMARY_CAUSE`: every rejected Likely hypothesis contains
+only two members and its sole eligible internal pair is Strong, so no competing
+partition exposed an objective-selection error. The frozen
+`GF5_PARTITION_POLICY_V1` remains unchanged. The consumed evidence cannot prove
+a safe general pair-evidence or status correction; `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`, with new independent validation
+required after any future runtime change.
+
 ## R18G-C consumption notice
 
 The holdout described below is no longer sealed or unseen. It was first opened
