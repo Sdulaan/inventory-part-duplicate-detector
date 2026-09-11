@@ -25,7 +25,15 @@ Classification: `FINAL_DEMO_REHEARSAL_GO`
 - [ ] Defer one candidate and leave one candidate unreviewed.
 - [ ] Confirm the four visible authority states: Human Confirmed, Human
   Rejected, Review Deferred, and Requires Human Review.
-- [ ] Export and open XLSX sheets `Summary`, `Candidate Groups`, and `Group Data`.
+- [ ] Export XLSX and begin on `Overview`; state the advisory and human-authority
+  message before showing candidate details.
+- [ ] In `Review Groups`, show one two-member block and the three-member motor
+  block; point out that group fields span the block while member fields remain
+  distinct.
+- [ ] Use `Group Index` for the concise candidate list and `Detailed Data` for
+  flat filtering/sorting.
+- [ ] Show that canonical IDs and stable references remain available only on
+  the final `Technical Reference` support sheet.
 - [ ] Confirm Reviewed CSV contains only the three confirmed motor records.
 
 ## Truthfulness checks
@@ -53,3 +61,6 @@ Classification: `FINAL_DEMO_REHEARSAL_GO`
 
 Suggested future tag: `advisory-demo-ready-v1`. Do not create or move it without
 explicit architect approval.
+
+Post-rehearsal XLSX status: `DEMO_XLSX_CLIENT_UX_POLISH_READY`. Reference commit
+subject: `Polish client XLSX review experience`.

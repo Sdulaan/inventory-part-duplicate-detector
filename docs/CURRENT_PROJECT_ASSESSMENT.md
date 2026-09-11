@@ -1594,3 +1594,21 @@ detector result leaks into the reviewer view. GF-12A2 is
 and quality metrics remain absent. Production semantics and all R12/R16/R17,
 GF-11, waiver, performance-debt, detector-freeze, and deployment boundaries
 remain unchanged.
+
+## Demo XLSX client UX polish
+
+The authorized post-rehearsal presentation patch is
+`DEMO_XLSX_CLIENT_UX_POLISH_READY`. It replaces the technical three-sheet view
+with `Overview`, `Review Groups`, `Group Index`, `Detailed Data`, and
+`Technical Reference`. Only group-level values are vertically merged in the
+primary review sheet; member fields remain distinct, while the analytical sheet
+remains a flat Excel table. Canonical group IDs and stable source references are
+preserved on the last audit sheet and removed from the primary client flow.
+
+The locally available Scan 34 export retains 158 groups, 341 members, 51
+Stronger Evidence and 107 Review Evidence groups, all requiring human review.
+Excel rendering, package round-trip, semantic parity, two/three-member block,
+review-state, empty-state, long-comment, formula-safety, and zero-provider-call
+checks pass. No detector, GF4/GF5/GF6, membership, review authority, API/CSV,
+frontend, migration, or provider behavior changed. The containing reference
+commit has subject `Polish client XLSX review experience`.

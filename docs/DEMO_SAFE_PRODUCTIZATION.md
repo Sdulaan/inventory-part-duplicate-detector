@@ -65,20 +65,29 @@ reviewed CSV remains limited to current human-confirmed identity sets.
 
 ## XLSX authority model
 
-The existing group export is revised, not replaced by XLSX-vNext:
+The existing group export is revised, not replaced by XLSX-vNext. The authorized
+post-rehearsal UX polish uses:
 
-- `Summary` states the report purpose, advisory limitation, human authority,
-  workflow, and counts separated into system suggestions, confirmations,
-  rejections, and deferred/unreviewed candidates.
-- `Candidate Groups` contains one readable row per candidate with candidate and
-  canonical IDs, review state, evidence tier, member count, sites, reason,
-  human decision, and human comment.
-- `Group Data` preserves all source member fields and links every member to the
-  same unchanged candidate group.
+- `Overview` for report purpose, advisory limitation, human authority, workflow,
+  business KPIs, and lower-priority scan metadata.
+- `Review Groups` for one visible candidate block containing 2..N distinct
+  member rows. Only group-level columns A:G are vertically merged.
+- `Group Index` for one concise, filterable row per candidate.
+- `Detailed Data` for a flat, unmerged, table-filterable member dataset with all
+  readable source fields.
+- `Technical Reference` for canonical IDs, source rows, stable record
+  references, projection details, and the original deterministic reason.
 
 Spreadsheet-formula escaping, deterministic ordering, immutable membership,
 and the authoritative reviewed-export boundary remain intact. The workbook
 contains no unsupported accuracy, probability, or confidence percentage.
+
+Scan 34 acceptance retained 158 exact groups and 341 exact member rows (51
+Stronger Evidence, 107 Review Evidence, all requiring human review). Microsoft
+Excel rendering and round-trip inspection passed, including two- and
+three-member blocks plus reviewed-state examples. Provider calls remained zero;
+detector/GF5 semantics and human authority did not change. Classification:
+`DEMO_XLSX_CLIENT_UX_POLISH_READY`.
 
 ## Demo data and claim policy
 

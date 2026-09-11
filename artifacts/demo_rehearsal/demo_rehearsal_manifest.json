@@ -1,5 +1,5 @@
 {
-  "manifest_version": "final-demo-rehearsal-v1",
+  "manifest_version": "final-demo-rehearsal-v2-xlsx-client-ux",
   "rehearsal_timestamp": "2026-09-10T17:07:50.2339237+05:30",
   "rehearsal_baseline_head": "6ec74d42a24797de19dafcf312f08b7c958aa299",
   "branch": "llm-assisted-mvp",
@@ -44,13 +44,31 @@
   },
   "xlsx": {
     "path": "artifacts/demo_rehearsal/DEMONSTRATION_WALKTHROUGH_EXAMPLES_system_groups.xlsx",
-    "sha256": "77ca8d60156e913c2c7011a33adc66363d8a85ac5ccd7aa3ec56d7ecfa5b3057",
-    "bytes": 11797,
-    "sheets": ["Summary", "Candidate Groups", "Group Data"],
+    "sha256": "8ce2f257665f64e45008edc1db9fa691f3b5ea0fa6db508da91b413434b0a7bf",
+    "bytes": 15694,
+    "sheets": ["Overview", "Review Groups", "Group Index", "Detailed Data", "Technical Reference"],
     "candidate_rows": 4,
     "member_rows": 9,
     "formula_cells": 0,
     "unsafe_terms_found": []
+  },
+  "xlsx_client_ux_polish": {
+    "classification": "DEMO_XLSX_CLIENT_UX_POLISH_READY",
+    "baseline_head": "71fd71e968c25651debe3f0a0553bccbfbfe131b",
+    "reference_commit_subject": "Polish client XLSX review experience",
+    "review_group_merged_columns": "A:G",
+    "member_columns_unmerged": "H:U",
+    "detailed_data_table": "SystemGroupData",
+    "excel_visual_inspection": "PASS",
+    "scan_34_export_ms": 5689,
+    "scan_34_groups": 158,
+    "scan_34_member_rows": 341,
+    "scan_34_stronger_evidence": 51,
+    "scan_34_review_evidence": 107,
+    "scan_34_requires_human_review": 158,
+    "focused_xlsx_tests": "22 passed",
+    "bounded_backend_export_safety_tests": "127 passed",
+    "provider_calls": 0
   },
   "verification": {
     "focused_backend_tests": "76 passed",

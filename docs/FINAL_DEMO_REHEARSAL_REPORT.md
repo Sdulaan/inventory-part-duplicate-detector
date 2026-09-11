@@ -203,3 +203,24 @@ the pre-completed result without claiming that the fallback is a fresh run.
 
 No tag was created or moved. `advisory-demo-ready-v1` is only a suggested future
 tag and requires explicit architect approval.
+
+## Authorized XLSX presentation re-rehearsal
+
+The bounded post-freeze correction is
+`DEMO_XLSX_CLIENT_UX_POLISH_READY`. The export now opens on `Overview`; the
+primary `Review Groups` sheet presents one candidate as a visually bounded
+member block; `Group Index` provides a concise one-row index; `Detailed Data`
+remains flat/filterable; and `Technical Reference` retains canonical IDs and
+stable source references outside the primary review flow.
+
+Microsoft Excel opened and rendered all five sheets from the reviewed synthetic
+fallback. Inspection covered two-member blocks, the three-member motor block,
+all four authority states, long wrapped content, and technical traceability.
+The reviewed fixture exported in 1,268 ms. The locally available Scan 34 export
+completed in 5,689 ms and retained exactly 158 groups, 341 member rows, 51
+Stronger Evidence groups, 107 Review Evidence groups, and 158 unreviewed states.
+Focused XLSX/package tests passed 22/22; the broader bounded backend export and
+safety suite passed 127/127; provider calls remained zero. Detector, GF5,
+membership, and review authority are unchanged. The demo remains authorized
+under the same advisory claim boundary after the containing commit,
+`Polish client XLSX review experience`.

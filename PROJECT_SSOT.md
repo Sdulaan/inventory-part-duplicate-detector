@@ -695,3 +695,16 @@ an ignored local artifact path. Human labels completed are 0. GF-12A2 is now
 COMPLETE, or ground truth. No production semantic or authority changed. The
 detector, R12, R16, R17, GF-11, performance waiver/debt, and deployment states
 remain unchanged.
+
+## Post-rehearsal XLSX client UX polish
+
+The one-time presentation exception is
+`DEMO_XLSX_CLIENT_UX_POLISH_READY`. The authority-selected XLSX now opens on
+`Overview`, uses `Review Groups` to merge only group-level columns A:G across
+each exact member block, keeps `Detailed Data` flat/filterable, and relocates
+canonical IDs and stable references to the final `Technical Reference` sheet.
+Scan 34 retained exactly 158 groups, 341 members, 51 Stronger Evidence and 107
+Review Evidence groups, all requiring human review. Detector/GF5 semantics,
+membership, decisions, API/CSV contracts, frontend behavior, and provider calls
+remain unchanged; provider calls are zero. The containing commit subject is
+`Polish client XLSX review experience`.
