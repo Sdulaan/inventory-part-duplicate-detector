@@ -17,6 +17,7 @@ from sklearn.preprocessing import normalize
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.constants import SOURCE_ROW_INDEX_FIELD
 from app.db.models import LocalEmbeddingCache, utcnow
 from app.services.character_retrieval import (
     CharacterRetrievalStrategy,
@@ -25,7 +26,13 @@ from app.services.character_retrieval import (
     retrieve_lsh_directed_neighbors,
     select_character_retrieval_strategy,
 )
+from app.services.canonical_record_service import (
+    retrieval_order_key_for_source_record,
+    retrieval_pair_order_key,
+)
 from app.services.lexical_retrieval import (
+    LexicalRetrievalError,
+    LexicalRetrievalFailureCategory,
     LexicalRetrievalWorkMetrics,
     retrieve_production_lexical_neighbors,
 )
@@ -45,6 +52,7 @@ from app.engine.variant_extractor import find_critical_mismatches
 
 RRF_K = 60
 CANONICAL_RECORD_REF_FIELD = "__CANONICAL_RECORD_REF_KEY"
+RETRIEVAL_ORDER_KEY_FIELD = "__RETRIEVAL_ORDER_KEY"
 CHANNEL_WEIGHTS = {
     "EXACT_DESCRIPTION": 2.4,
     "PART_NUMBER_FAMILY": 2.2,
@@ -56,6 +64,20 @@ _MAX_RRF = sum(weight / (RRF_K + 1) for weight in CHANNEL_WEIGHTS.values())
 _EMBEDDING_CACHE_LOAD_CHUNK_SIZE = 900
 _EMBEDDING_CACHE_SAVE_LOOKUP_CHUNK_SIZE = 900
 _EMBEDDING_CACHE_SAVE_INSERT_BATCH_SIZE = 1_000
+_EMBEDDING_VECTOR_DECIMAL_PRECISION = 7
+
+
+def canonical_embedding_vector(vector) -> np.ndarray:
+    """Return the finite-precision representation shared by cache misses and hits.
+
+    Seven decimal places is the existing persisted cache contract.  Applying
+    that contract before scoring prevents a freshly generated float32 vector
+    from differing from the same vector after its JSON cache round trip.
+    """
+    return np.round(
+        np.asarray(vector, dtype=np.float64),
+        _EMBEDDING_VECTOR_DECIMAL_PRECISION,
+    ).astype(np.float32)
 
 
 class RetrievalSource(str, Enum):
@@ -236,7 +258,7 @@ class SqlAlchemyEmbeddingVectorCache:
             ).all()
             for row in rows:
                 try:
-                    vector = np.asarray(json.loads(row.vector_json), dtype=np.float32)
+                    vector = canonical_embedding_vector(json.loads(row.vector_json))
                     if vector.shape == (384,):
                         result[row.record_fingerprint] = vector
                 except (TypeError, ValueError, json.JSONDecodeError):
@@ -262,7 +284,10 @@ class SqlAlchemyEmbeddingVectorCache:
         missing = []
         for fingerprint, vector in requested:
             vector_json = json.dumps(
-                np.round(np.asarray(vector, dtype=np.float64), 7).tolist(),
+                np.round(
+                    np.asarray(vector, dtype=np.float64),
+                    _EMBEDDING_VECTOR_DECIMAL_PRECISION,
+                ).tolist(),
                 separators=(",", ":"),
             )
             generated_at = utcnow()
@@ -294,14 +319,16 @@ class MemoryEmbeddingVectorCache:
 
     def load(self, fingerprints, model_version):
         return {
-            fingerprint: self.values[(fingerprint, model_version)]
+            fingerprint: canonical_embedding_vector(
+                self.values[(fingerprint, model_version)]
+            )
             for fingerprint in fingerprints
             if (fingerprint, model_version) in self.values
         }
 
     def save(self, vectors, model_version):
         for fingerprint, vector in vectors.items():
-            self.values[(fingerprint, model_version)] = vector
+            self.values[(fingerprint, model_version)] = canonical_embedding_vector(vector)
 
 
 def record_fingerprint(text: str) -> str:
@@ -552,19 +579,19 @@ def _nearest_pairs(matrix, top_k: int) -> list[tuple[int, int, float, bool]]:
 
 
 def _deterministic_lexical_directed_neighbors(
-    matrix, top_k: int, canonical_record_refs,
+    matrix, top_k: int, retrieval_order_keys,
 ) -> dict[int, tuple[tuple[int, float], ...]]:
-    """Exact brute-force cosine top-k with canonical full-precision tie ordering."""
+    """Exact brute-force cosine top-k with scan-independent tie ordering."""
     count = matrix.shape[0]
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
-    if len(refs) != count or any(not value for value in refs):
-        raise ValueError("lexical retrieval requires one canonical record reference per row")
-    if len(set(refs)) != count:
-        raise ValueError("lexical retrieval canonical record references must be unique")
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
+    if len(order_keys) != count or any(not value for value in order_keys):
+        raise ValueError("lexical retrieval requires one retrieval order key per row")
+    if len(set(order_keys)) != count:
+        raise ValueError("lexical retrieval order keys must be unique")
     if count < 2 or top_k <= 0:
         return {}
 
-    ref_values = np.asarray(refs, dtype=object)
+    order_values = np.asarray(order_keys, dtype=object)
     directed = {}
     for start in range(0, count, 64):
         similarities = cosine_similarity(
@@ -574,7 +601,7 @@ def _deterministic_lexical_directed_neighbors(
             source = start + offset
             row_scores[source] = -np.inf
             targets = np.flatnonzero(row_scores > 0)
-            order = np.lexsort((ref_values[targets], -row_scores[targets]))[:top_k]
+            order = np.lexsort((order_values[targets], -row_scores[targets]))[:top_k]
             directed[source] = tuple(
                 (int(targets[position]), float(row_scores[targets[position]]))
                 for position in order
@@ -583,30 +610,30 @@ def _deterministic_lexical_directed_neighbors(
 
 
 def _deterministic_lexical_nearest_pairs(
-    matrix, top_k: int, canonical_record_refs,
+    matrix, top_k: int, retrieval_order_keys,
 ) -> list[tuple[int, int, float, bool]]:
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
     return _directed_neighbors_to_pairs(
-        _deterministic_lexical_directed_neighbors(matrix, top_k, refs), refs
+        _deterministic_lexical_directed_neighbors(matrix, top_k, order_keys), order_keys
     )
 
 
 def _deterministic_directed_neighbors(
-    matrix, top_k: int, canonical_record_refs,
+    matrix, top_k: int, retrieval_order_keys,
 ) -> dict[int, tuple[tuple[int, float], ...]]:
-    """Exact cosine top-k with canonical ordering for equal-score members."""
+    """Exact cosine top-k with scan-independent ordering for equal scores."""
     count = matrix.shape[0]
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
-    if len(refs) != count or any(not value for value in refs):
-        raise ValueError("character retrieval requires one canonical record reference per row")
-    if len(set(refs)) != count:
-        raise ValueError("character retrieval canonical record references must be unique")
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
+    if len(order_keys) != count or any(not value for value in order_keys):
+        raise ValueError("character retrieval requires one retrieval order key per row")
+    if len(set(order_keys)) != count:
+        raise ValueError("character retrieval order keys must be unique")
     if count < 2:
         return {}
 
     index = NearestNeighbors(n_neighbors=count, metric="cosine", algorithm="brute")
     index.fit(matrix)
-    ref_values = np.asarray(refs, dtype=object)
+    order_values = np.asarray(order_keys, dtype=object)
     directed = {}
     for start in range(0, count, 64):
         distances, indices = index.kneighbors(
@@ -617,7 +644,7 @@ def _deterministic_directed_neighbors(
             keep = row_indices != source
             targets = row_indices[keep]
             similarities = 1.0 - row_distances[keep]
-            order = np.lexsort((ref_values[targets], -similarities))[:top_k]
+            order = np.lexsort((order_values[targets], -similarities))[:top_k]
             directed[source] = tuple(
                 (int(targets[position]), float(similarities[position]))
                 for position in order
@@ -627,18 +654,18 @@ def _deterministic_directed_neighbors(
 
 
 def _deterministic_nearest_pairs(
-    matrix, top_k: int, canonical_record_refs,
+    matrix, top_k: int, retrieval_order_keys,
 ) -> list[tuple[int, int, float, bool]]:
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
-    directed_neighbors = _deterministic_directed_neighbors(matrix, top_k, refs)
-    return _directed_neighbors_to_pairs(directed_neighbors, refs)
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
+    directed_neighbors = _deterministic_directed_neighbors(matrix, top_k, order_keys)
+    return _directed_neighbors_to_pairs(directed_neighbors, order_keys)
 
 
 def _directed_neighbors_to_pairs(
-    directed_neighbors, canonical_record_refs,
+    directed_neighbors, retrieval_order_keys,
 ) -> list[tuple[int, int, float, bool]]:
     """Shared reciprocal reconstruction for exact and LSH-directed neighbors."""
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
     directed = {
         (source, target): round(max(0.0, score) * 100, 2)
         for source, neighbors in directed_neighbors.items()
@@ -660,7 +687,7 @@ def _directed_neighbors_to_pairs(
         output,
         key=lambda item: (
             -item[2],
-            *sorted((refs[item[0]], refs[item[1]])),
+            *sorted((order_keys[item[0]], order_keys[item[1]])),
         ),
     )
 
@@ -687,9 +714,45 @@ class HybridCandidateRetriever:
         started = time.perf_counter()
         records = [row.to_dict() for _, row in df.reset_index(drop=True).iterrows()]
         excluded_pairs = excluded_pairs or set()
+        canonical_record_refs = tuple(
+            str(record.get(CANONICAL_RECORD_REF_FIELD) or "").strip()
+            for record in records
+        )
+        if (
+            len(canonical_record_refs) != len(records)
+            or any(not reference for reference in canonical_record_refs)
+            or len(set(canonical_record_refs)) != len(records)
+        ):
+            raise LexicalRetrievalError(
+                LexicalRetrievalFailureCategory.INDEX_CONFIGURATION_INVALID,
+                "lexical retrieval requires one unique canonical record reference per row",
+            )
+        retrieval_order_keys = tuple(
+            str(record.get(RETRIEVAL_ORDER_KEY_FIELD) or "").strip()
+            or retrieval_order_key_for_source_record(
+                record,
+                record.get(SOURCE_ROW_INDEX_FIELD, index),
+            )
+            for index, record in enumerate(records)
+        )
+        if (
+            len(retrieval_order_keys) != len(records)
+            or any(not key for key in retrieval_order_keys)
+            or len(set(retrieval_order_keys)) != len(records)
+        ):
+            raise ValueError(
+                "hybrid retrieval requires one unique retrieval order key per row"
+            )
+
+        def index_order(index: int) -> str:
+            return retrieval_order_keys[index]
+
+        def pair_order(left: int, right: int) -> tuple[str, str]:
+            return retrieval_pair_order_key(index_order(left), index_order(right))
+
         features = []
         for index, record in enumerate(records):
-            record_ref = str(record.get(CANONICAL_RECORD_REF_FIELD) or "").strip()
+            record_ref = canonical_record_refs[index]
             if evaluation_features is None:
                 item = build_candidate_evaluation_features(
                     record, record_ref_key=record_ref
@@ -783,7 +846,7 @@ class HybridCandidateRetriever:
                 exact_groups[value].append(index)
         exact_proposals = {}
         for value, indexes in exact_groups.items():
-            bounded = sorted(set(indexes))[:50]
+            bounded = sorted(set(indexes), key=index_order)[:50]
             for position, left in enumerate(bounded):
                 for right in bounded[position + 1:]:
                     pair = eligible(left, right, "EXACT_DESCRIPTION")
@@ -793,7 +856,11 @@ class HybridCandidateRetriever:
                             (specificity[left].score + specificity[right].score) / 2,
                         )
         for rank, (pair, quality) in enumerate(
-            sorted(exact_proposals.items(), key=lambda item: (-item[1], item[0])), 1
+            sorted(
+                exact_proposals.items(),
+                key=lambda item: (-item[1], pair_order(*item[0])),
+            ),
+            1,
         ):
             add_channel(*pair, "EXACT_DESCRIPTION", rank, quality)
 
@@ -803,14 +870,18 @@ class HybridCandidateRetriever:
                 family_groups[key].append(index)
         family_proposals = {}
         for key, indexes in sorted(family_groups.items()):
-            bounded = sorted(set(indexes))[:50]
+            bounded = sorted(set(indexes), key=index_order)[:50]
             for position, left in enumerate(bounded):
                 for right in bounded[position + 1:]:
                     pair = eligible(left, right, "PART_NUMBER_FAMILY")
                     if pair:
                         family_proposals[pair] = max(family_proposals.get(pair, 0.0), len(key))
         for rank, (pair, quality) in enumerate(
-            sorted(family_proposals.items(), key=lambda item: (-item[1], item[0])), 1
+            sorted(
+                family_proposals.items(),
+                key=lambda item: (-item[1], pair_order(*item[0])),
+            ),
+            1,
         ):
             add_channel(*pair, "PART_NUMBER_FAMILY", rank, quality)
 
@@ -826,12 +897,12 @@ class HybridCandidateRetriever:
             if lexical_matrix is not None:
                 lexical_result = retrieve_production_lexical_neighbors(
                     lexical_matrix,
-                    [record.get(CANONICAL_RECORD_REF_FIELD) for record in records],
+                    retrieval_order_keys,
                     self.configuration.hybrid_retrieval_lexical_top_k,
                 )
                 lexical_pairs = _directed_neighbors_to_pairs(
                     lexical_result.directed_neighbors,
-                    [record.get(CANONICAL_RECORD_REF_FIELD) for record in records],
+                    retrieval_order_keys,
                 )
                 lexical_metrics = lexical_result.metrics
         for rank, (left, right, score, reciprocal) in enumerate(lexical_pairs, 1):
@@ -840,9 +911,6 @@ class HybridCandidateRetriever:
         vector_pairs = []
         character_metrics = None
         if self.configuration.local_embedding_enabled and records:
-            canonical_record_refs = [
-                record.get(CANONICAL_RECORD_REF_FIELD) for record in records
-            ]
             fingerprints = [record_fingerprint(text) for text in texts]
             loaded = self.cache.load(fingerprints, self.embedder.model_version)
             missing_positions = [
@@ -852,7 +920,7 @@ class HybridCandidateRetriever:
             if missing_positions:
                 generated = self.embedder.encode([texts[index] for index in missing_positions])
                 additions = {
-                    fingerprints[position]: generated[offset]
+                    fingerprints[position]: canonical_embedding_vector(generated[offset])
                     for offset, position in enumerate(missing_positions)
                 }
                 self.cache.save(additions, self.embedder.model_version)
@@ -863,7 +931,7 @@ class HybridCandidateRetriever:
             if strategy == CharacterRetrievalStrategy.EXACT:
                 character_started = time.perf_counter()
                 directed_neighbors = _deterministic_directed_neighbors(
-                    matrix, vector_top_k, canonical_record_refs
+                    matrix, vector_top_k, retrieval_order_keys
                 )
                 elapsed_ms = round(
                     (time.perf_counter() - character_started) * 1000, 3
@@ -878,12 +946,12 @@ class HybridCandidateRetriever:
                 )
             else:
                 lsh_result = retrieve_lsh_directed_neighbors(
-                    matrix, canonical_record_refs, vector_top_k
+                    matrix, retrieval_order_keys, vector_top_k
                 )
                 directed_neighbors = lsh_result.directed_neighbors
                 character_metrics = lsh_result.metrics
             vector_pairs = _directed_neighbors_to_pairs(
-                directed_neighbors, canonical_record_refs
+                directed_neighbors, retrieval_order_keys
             )
         for rank, (left, right, score, reciprocal) in enumerate(vector_pairs, 1):
             add_channel(left, right, "CHAR_VECTOR", rank, score, reciprocal)
@@ -895,14 +963,18 @@ class HybridCandidateRetriever:
                 technical_groups[key].append(index)
         technical_proposals = Counter()
         for key, indexes in sorted(technical_groups.items()):
-            bounded = sorted(set(indexes))[:50]
+            bounded = sorted(set(indexes), key=index_order)[:50]
             for position, left in enumerate(bounded):
                 for right in bounded[position + 1:]:
                     pair = eligible(left, right, "TECHNICAL_IDENTITY")
                     if pair:
                         technical_proposals[pair] += 1
         for rank, (pair, quality) in enumerate(
-            sorted(technical_proposals.items(), key=lambda item: (-item[1], item[0])), 1
+            sorted(
+                technical_proposals.items(),
+                key=lambda item: (-item[1], pair_order(*item[0])),
+            ),
+            1,
         ):
             add_channel(*pair, "TECHNICAL_IDENTITY", rank, float(quality))
 
@@ -962,7 +1034,7 @@ class HybridCandidateRetriever:
             description_family = (
                 f"description:{normalized_descriptions[left]}"
                 if normalized_descriptions[left] == normalized_descriptions[right]
-                else f"pair:{left}:{right}"
+                else f"pair:{pair_order(left, right)[0]}:{pair_order(left, right)[1]}"
             )
             prepared.append({
                 "left": left, "right": right, "sources": sources, "row": row,
@@ -975,7 +1047,8 @@ class HybridCandidateRetriever:
 
         prepared.sort(key=lambda item: (
             {RetrievalTier.TIER_A: 0, RetrievalTier.TIER_B: 1, RetrievalTier.TIER_C: 2}[item["tier"]],
-            -item["priority"], -item["specificity"], item["left"], item["right"],
+            -item["priority"], -item["specificity"],
+            pair_order(item["left"], item["right"]),
         ))
         global_cap = self.configuration.hybrid_retrieval_max_pairs_per_scan
         tier_caps = {

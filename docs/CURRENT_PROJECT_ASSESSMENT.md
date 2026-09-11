@@ -1,5 +1,17 @@
 # Current project assessment
 
+## Repeated scans are semantically deterministic
+
+`DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`: three fresh 5,327-row scans with
+different scan IDs and cold/warm cache variation produced identical normalized
+S0-S10 fingerprints, 20,492 proposals, 158 final groups, and exactly 171,251
+GF5 partition explorations. Scan-local persistence/API references remain
+separate. Protected cannot-links, Bicycle/R18C behavior, review authority, and
+XLSX semantics pass; provider calls are 0. The deterministic demo claim is
+restored with the explicit qualification that scan IDs, timestamps, filenames,
+and other persistence references may differ. See
+`DETERMINISM_CACHE_AND_GF5_ORDERING_FIX.md`.
+
 ## Final advisory demo rehearsal is GO
 
 The exact 17-row synthetic, provider-none, non-Docker workflow passed live in a

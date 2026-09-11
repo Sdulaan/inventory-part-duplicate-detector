@@ -1,5 +1,15 @@
 # Final advisory demo checklist
 
+Post-rehearsal determinism status:
+`DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`.
+
+- [ ] If asked about repeatability, say: "For the same input, engine version,
+  configuration, and deterministic reference data, semantic candidates and
+  groups are independent of scan ID and cache state; persistence IDs and
+  timestamps may differ."
+- [ ] Do not turn this determinism statement into an accuracy, confidence,
+  production-readiness, or automatic-merge claim.
+
 Classification: `FINAL_DEMO_REHEARSAL_GO`
 
 ## Before presenting

@@ -25,15 +25,16 @@ from app.discovery.contracts import (
 from app.engine.candidate_generator import MAX_CANDIDATE_PAIRS
 from app.repositories.discovery_repository import DiscoveryRepository
 from app.services.character_retrieval import character_retrieval_contract_payload
+from app.services.canonical_record_service import retrieval_pair_order_key
 from app.services.lexical_retrieval import (
     lexical_strategy_contract_payload,
     select_lexical_strategy,
 )
 
 
-DISCOVERY_ALGORITHM_VERSION = "identity-discovery-v5-bounded-lexical-strategy"
-DISCOVERY_CONFIGURATION_VERSION = "identity-discovery-config-v5"
-NEIGHBOR_PROPOSAL_VERSION = "neighbor-proposal-v1"
+DISCOVERY_ALGORITHM_VERSION = "identity-discovery-v6-scan-independent-ordering"
+DISCOVERY_CONFIGURATION_VERSION = "identity-discovery-config-v6"
+NEIGHBOR_PROPOSAL_VERSION = "neighbor-proposal-v2"
 _MAX_WARNING_CODES = 20
 _MAX_CONTEXT_ITEMS = 20
 
@@ -286,6 +287,9 @@ def persist_discovery_proposals(
     if any(record.scan_id != scan_id for record in catalog_records):
         raise ValueError("proposal catalog contains a cross-scan record")
     by_source, by_id = _record_maps(catalog_records)
+    order_keys_by_id = {
+        record.record_id: record.retrieval_order_key for record in catalog_records
+    }
     aggregates = {}
     _standard_adapter(aggregates, standard_pairs, by_source)
     _hybrid_adapter(aggregates, hybrid_result, engine_records, by_source)
@@ -305,7 +309,13 @@ def persist_discovery_proposals(
 
     ordered = sorted(
         aggregates.values(),
-        key=lambda item: (-item.priority, item.record_id_1, item.record_id_2),
+        key=lambda item: (
+            -item.priority,
+            *retrieval_pair_order_key(
+                order_keys_by_id[item.record_id_1],
+                order_keys_by_id[item.record_id_2],
+            ),
+        ),
     )
     rows = []
     for order, aggregate in enumerate(ordered, 1):

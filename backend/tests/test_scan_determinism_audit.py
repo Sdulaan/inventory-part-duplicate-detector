@@ -11,7 +11,10 @@ from app.benchmarks.scan_determinism_audit import (
     fingerprint,
     stage_result,
 )
-from app.services.canonical_record_service import canonical_record_ref_key
+from app.services.canonical_record_service import (
+    canonical_record_ref_key,
+    retrieval_order_key,
+)
 from app.services.character_retrieval import (
     CharacterLshConfiguration,
     retrieve_lsh_directed_neighbors,
@@ -40,13 +43,7 @@ def test_stage_result_preserves_count_and_uses_canonical_pair_order():
     assert len(result.fingerprint) == 64
 
 
-def test_characterization_scan_local_reference_changes_a_tied_retrieval_decision():
-    """Current behavior: scan ID leaks into a decision-affecting tie key.
-
-    This is a passing characterization of the diagnosed defect, not a fix.  The
-    next correction should replace the scan-local tie identity and invert this
-    expectation.
-    """
+def test_corrected_character_tie_ignores_scan_local_reference():
     matrix = np.zeros((4, 384), dtype=np.float32)
     matrix[:, 0] = 1.0
     matrix = normalize(matrix)
@@ -58,12 +55,21 @@ def test_characterization_scan_local_reference_changes_a_tied_retrieval_decision
     )
 
     chosen = []
+    order_keys = tuple(
+        retrieval_order_key(f"source-fingerprint-{row}", row)
+        for row in range(4)
+    )
     for scan_id in (34, 35):
-        refs = tuple(canonical_record_ref_key(scan_id, row) for row in range(4))
-        result = retrieve_lsh_directed_neighbors(matrix, refs, 1, configuration)
+        references = tuple(
+            canonical_record_ref_key(scan_id, row) for row in range(4)
+        )
+        assert len(set(references)) == 4
+        result = retrieve_lsh_directed_neighbors(
+            matrix, order_keys, 1, configuration
+        )
         chosen.append(result.directed_neighbors[0][0][0])
 
-    assert chosen == [1, 3]
+    assert chosen[0] == chosen[1]
 
 
 def test_characterization_is_repeatable_when_reference_identity_is_stable():

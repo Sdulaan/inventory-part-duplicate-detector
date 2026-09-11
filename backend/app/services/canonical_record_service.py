@@ -16,6 +16,7 @@ from app.engine.normalizer import normalize_description
 
 
 CANONICAL_SCAN_RECORD_CONTRACT_VERSION = "canonical-scan-record-v1"
+RETRIEVAL_ORDER_KEY_VERSION = "retrieval-order-key-v1"
 _CANONICAL_FIELD_MAP = {
     "contract": "CONTRACT",
     "part_no": "PART_NO",
@@ -57,6 +58,13 @@ class CanonicalScanRecord:
     normalized_description: str
     normalization_version: str
 
+    @property
+    def retrieval_order_key(self) -> str:
+        """Scan-independent key used only by bounded retrieval ordering."""
+        return retrieval_order_key(
+            self.source_record_fingerprint, self.source_row_index
+        )
+
 
 @dataclass(frozen=True)
 class CanonicalRecordCatalogResult:
@@ -88,6 +96,43 @@ def canonical_record_ref_key(scan_id: int, source_row_index: int) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def retrieval_order_key(
+    source_record_fingerprint: str, source_row_index: int
+) -> str:
+    """Derive a stable retrieval key without scan or database identity.
+
+    The immutable canonical-field fingerprint supplies content identity and the
+    source row ordinal makes byte/content-identical duplicate rows distinct.
+    """
+    fingerprint = str(source_record_fingerprint or "").strip().lower()
+    if not fingerprint:
+        raise ValueError("retrieval ordering requires a source-record fingerprint")
+    try:
+        ordinal = int(source_row_index)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("retrieval ordering requires an integer source row ordinal") from exc
+    if ordinal < 0:
+        raise ValueError("retrieval ordering requires a non-negative source row ordinal")
+    payload = {
+        "contract_version": RETRIEVAL_ORDER_KEY_VERSION,
+        "source_record_fingerprint": fingerprint,
+        "source_row_ordinal": ordinal,
+    }
+    encoded = json.dumps(
+        payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def retrieval_pair_order_key(left_key: str, right_key: str) -> tuple[str, str]:
+    """Return an endpoint-order-independent key for pair ranking."""
+    left = str(left_key or "").strip()
+    right = str(right_key or "").strip()
+    if not left or not right or left == right:
+        raise ValueError("retrieval pair ordering requires two distinct keys")
+    return tuple(sorted((left, right)))
+
+
 def _canonical_values(item) -> dict:
     values = {
         attribute: _optional_text(_value(item, source_name))
@@ -107,6 +152,20 @@ def _source_record_fingerprint(values: dict) -> str:
         payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def retrieval_order_key_for_source_record(item, source_row_index: int | None = None) -> str:
+    """Derive retrieval identity directly from a canonicalizable source row."""
+    ordinal = (
+        _value(item, SOURCE_ROW_INDEX_FIELD)
+        if source_row_index is None
+        else source_row_index
+    )
+    if ordinal is None:
+        raise ValueError("retrieval ordering requires a source row ordinal")
+    return retrieval_order_key(
+        _source_record_fingerprint(_canonical_values(item)), ordinal
+    )
 
 
 def _planned_snapshot(scan_id: int, item) -> dict:

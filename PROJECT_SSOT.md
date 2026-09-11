@@ -1,5 +1,19 @@
 # Group-first inventory identity project SSOT
 
+## Repeated-scan semantic determinism verified
+
+`DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`: retrieval ranking now uses a
+scan-independent content-fingerprint plus source-row key, fresh and cached
+character vectors share the existing seven-decimal representation before
+scoring, and GF5 bounded traversal uses canonical semantic member/partition
+keys rather than scan-local hypothesis IDs. Three fresh 5,327-row scans (cold,
+warm, warm) have identical S0-S10 semantic fingerprints and exactly 171,251
+GF5 partition explorations. The corrected output is 158 advisory groups (45
+Stronger Evidence, 113 Review Evidence), 27 conflicts, 40 deferred work units,
+and 4,982 unassigned records. Safety/review/XLSX verification passes and
+provider calls are 0. The five-term `GF5_PARTITION_POLICY_V1` objective is
+unchanged. See `docs/DETERMINISM_CACHE_AND_GF5_ORDERING_FIX.md`.
+
 ## Final advisory demo rehearsal passed
 
 `FINAL_DEMO_REHEARSAL_GO`: the provider-free, non-Docker 17-row synthetic live

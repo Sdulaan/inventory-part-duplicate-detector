@@ -65,6 +65,36 @@ class ScanAudit:
         self.evidence_run = self._one("identity_evidence_run")
         self.resolution_run = self._one("identity_resolution_run")
         self.projection_run = self._one("g2_v2_projection_run")
+        evidence_rows = self._rows(
+            "select * from identity_evidence_edge_snapshot where evidence_run_id=?",
+            (self.evidence_run["id"],),
+        )
+        self.semantic_by_evidence_reference = {
+            row["evidence_fingerprint"]: {
+                "pair": self._pair(row),
+                "edge_class": row["edge_class"],
+                "reason_codes": self._json(row["classification_reason_codes_json"]),
+            }
+            for row in evidence_rows
+        }
+        targeted_rows = self._rows(
+            "select * from identity_resolution_targeted_evidence "
+            "where resolution_run_id=? and evaluation_completed=1",
+            (self.resolution_run["id"],),
+        )
+        self.semantic_by_evidence_reference.update({
+            row["evidence_fingerprint"]: {
+                "pair": canonical_pair(
+                    self.stable_by_id[row["record_id_1"]],
+                    self.stable_by_id[row["record_id_2"]],
+                ),
+                "edge_class": row["edge_class"],
+                "reason_codes": self._json(row["reason_codes_json"]),
+                "generic_only": bool(row["generic_only"]),
+            }
+            for row in targeted_rows
+            if row["evidence_fingerprint"]
+        })
 
     def _rows(self, sql: str, parameters: tuple[Any, ...] = ()) -> list[sqlite3.Row]:
         return list(self.connection.execute(sql, parameters))
@@ -92,11 +122,26 @@ class ScanAudit:
 
     def _normalize_refs(self, value: Any) -> Any:
         if isinstance(value, str):
-            return self.stable_by_ref.get(value, value)
+            return self.stable_by_ref.get(
+                value, self.semantic_by_evidence_reference.get(value, value)
+            )
         if isinstance(value, list):
             return [self._normalize_refs(item) for item in value]
         if isinstance(value, dict):
-            return {key: self._normalize_refs(item) for key, item in value.items()}
+            normalized = {}
+            for key, item in value.items():
+                if key.endswith("record_ids") and isinstance(item, list):
+                    normalized[key] = [self.stable_by_id[record_id] for record_id in item]
+                elif key.endswith("_pairs") and isinstance(item, list):
+                    normalized[key] = [
+                        canonical_pair(
+                            self.stable_by_id[pair[0]], self.stable_by_id[pair[1]]
+                        )
+                        for pair in item
+                    ]
+                else:
+                    normalized[key] = self._normalize_refs(item)
+            return normalized
         return value
 
     def _pair(self, row: sqlite3.Row) -> tuple[str, str]:
@@ -242,6 +287,8 @@ class ScanAudit:
                 value = row[column]
                 if column.endswith("_json"):
                     value = self._normalize_refs(self._json(value))
+                if column == "protected_evidence_references_json":
+                    value = sorted(value, key=canonical_json)
                 item[column] = value
             items.append(item)
         return tuple(items)

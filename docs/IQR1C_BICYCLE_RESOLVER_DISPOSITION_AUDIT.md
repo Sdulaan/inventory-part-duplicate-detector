@@ -65,7 +65,7 @@ shape produces the same generic-family rejection and deferral.
 | Targeted checks | none needed for the already-complete isolated subset |
 | Candidate generation / partition search | not exhausted / not exhausted |
 | Valid full-family candidate | no |
-| Candidate partitions explored | 1,730 in the isolated generic-shape characterization |
+| Candidate partitions explored | 1,540 under the later scan-independent GF5 ordering |
 | Equal best partitions | 105 three-pair matchings, each covering 6 members |
 | Partition stability | none; no pair is common to all best partitions |
 | Final reason | `UNRESOLVED_OWNERSHIP_AMBIGUITY` |
@@ -174,10 +174,14 @@ disposition.
 | A | 7, complete non-generic Review | no group; `INSUFFICIENT_PARTITION_STABILITY`; 16,521 partitions explored |
 | B | A plus one Strong | no group; `INSUFFICIENT_PARTITION_STABILITY` |
 | C | 20 Review plus one non-groupable/neutral | no group; `INSUFFICIENT_PARTITION_STABILITY` |
-| D | 20 Review plus one cannot-link | protected conflict, no group; `INSUFFICIENT_PARTITION_STABILITY` |
-| E | 4, complete non-generic Review | no group; `UNRESOLVED_OWNERSHIP_AMBIGUITY`; 104 partitions explored |
+| D | 20 Review plus one cannot-link | protected conflict, no group; `UNRESOLVED_OWNERSHIP_AMBIGUITY` |
+| E | 4, complete non-generic Review | no group; `UNRESOLVED_OWNERSHIP_AMBIGUITY`; 96 partitions explored |
 | F | 2, one Review | accepted `POSSIBLE_DUPLICATE_GROUP_REVIEW` |
-| Bicycle control | 7, complete generic-only Review | full candidate rejected; `UNRESOLVED_OWNERSHIP_AMBIGUITY`; 1,730 explored |
+| Bicycle control | 7, complete generic-only Review | full candidate rejected; `UNRESOLVED_OWNERSHIP_AMBIGUITY`; 1,540 explored |
+
+These exploration counts supersede the historical scan-local hypothesis-hash
+traversal counts. The GF5 objective and generic-only cohesion rule are unchanged;
+only the authorized deterministic traversal order changed.
 
 The matrix also exposes a secondary, non-causal policy question: partition
 selection currently uses `(covered, likely_members, strong, -review,

@@ -1,5 +1,14 @@
 # Final advisory demo rehearsal report
 
+## Post-rehearsal determinism gate
+
+The later `DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED` correction restores the
+qualified deterministic claim. Three fresh 5,327-row scans with different scan
+IDs and cold/warm cache states produced identical semantic candidate and group
+results. Scan-local IDs and timestamps may differ. The product remains advisory,
+human review remains authoritative, and this is not an accuracy or automatic-
+merge claim. See `DETERMINISM_CACHE_AND_GF5_ORDERING_FIX.md`.
+
 Classification: `FINAL_DEMO_REHEARSAL_GO`
 
 Rehearsal baseline: `6ec74d42a24797de19dafcf312f08b7c958aa299` on

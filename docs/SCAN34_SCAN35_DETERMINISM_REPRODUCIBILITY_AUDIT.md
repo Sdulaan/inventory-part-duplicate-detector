@@ -1,5 +1,16 @@
 # Scan 34 / Scan 35 Determinism and Reproducibility Audit
 
+## Corrected and superseded status
+
+The defect proven below is corrected by
+`DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`. The correction separates
+scan-independent retrieval ordering from scan-local references, canonicalizes
+fresh/cache-hit vectors identically, and removes scan-local hypothesis hashes
+from GF5 traversal. Three fresh cold/warm 5,327-row scans now match at every
+normalized semantic stage and at exactly 171,251 partition explorations. The
+historical Scan 34/35 differences remain valuable causal evidence, not current
+runtime behavior. See `DETERMINISM_CACHE_AND_GF5_ORDERING_FIX.md`.
+
 ## Decision
 
 ```text

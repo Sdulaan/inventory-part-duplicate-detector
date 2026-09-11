@@ -168,8 +168,8 @@ def test_lt14_production_preserves_lexical_provenance_caps_and_configuration():
     assert result.candidates
     assert all("LEXICAL" in item.evidence.retrieval_sources for item in result.candidates)
     assert result.metrics.max_candidates_for_any_record <= 1
-    assert DISCOVERY_ALGORITHM_VERSION == "identity-discovery-v5-bounded-lexical-strategy"
-    assert DISCOVERY_CONFIGURATION_VERSION == "identity-discovery-config-v5"
+    assert DISCOVERY_ALGORITHM_VERSION == "identity-discovery-v6-scan-independent-ordering"
+    assert DISCOVERY_CONFIGURATION_VERSION == "identity-discovery-config-v6"
 
 
 @pytest.mark.parametrize("refs", [("", "b"), ("a", "a")])

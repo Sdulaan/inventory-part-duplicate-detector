@@ -388,8 +388,15 @@ def test_ps24_only_bounded_xlsx_export_production_change():
         "backend/app/services/identity_read_xlsx_export_service.py",
         "backend/app/services/scan_runner.py",
         "backend/app/services/scan_service.py",
-        "backend/app/services/hybrid_retrieval.py",
-    }
+            "backend/app/services/hybrid_retrieval.py",
+            "backend/app/services/canonical_record_service.py",
+            "backend/app/services/character_retrieval.py",
+            "backend/app/services/identity_discovery_service.py",
+            "backend/app/services/identity_neighborhood_service.py",
+            "backend/app/services/lexical_retrieval.py",
+            "backend/app/resolution/contracts.py",
+            "backend/app/resolution/resolver.py",
+        }
     assert set(production_changes) <= allowed
     if production_changes:
         diff = subprocess.run(
@@ -404,8 +411,9 @@ def test_ps24_only_bounded_xlsx_export_production_change():
             or "evaluate_identity_discriminators" in diff
             or "system_explanation" in diff
             or "cross_site_identity_discovery" in diff
-            or "assess_lexical_trust" in diff
-        )
+                or "assess_lexical_trust" in diff
+                or "retrieval_order_key" in diff
+            )
         forbidden_names = ["generate_candidate_pairs"]
         if "assess_lexical_trust" not in diff:
             forbidden_names.append("score_candidate")
