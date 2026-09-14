@@ -1,5 +1,17 @@
 # Group-first inventory identity project SSOT
 
+## Ambiguous global aliases reviewed without runtime change
+
+`AMBIGUOUS_ALIAS_REVIEW_RECOMMENDS_DISABLE_PENDING_VALIDATION`: repository
+history and the historical 5,327-row CSV contain no client/domain validation
+for `co -> coconut` or `a -> amp`. Standalone `co` affects three `CO SO MRP`
+descriptions and should lose global authority in a separate bounded task;
+global `a` affects 46 descriptions and should later move to deterministic
+contextual configuration. A 128-record suppression diagnostic changed no
+membership, conflict, or cannot-link, but suppressing `a` moved one Strong edge
+and group to Review. Runtime/reference behavior remains unchanged and provider
+calls are 0. See `docs/AMBIGUOUS_ALIAS_PORTABILITY_REVIEW.md`.
+
 ## Core semantic aliases externalized without behavior change
 
 `SEMANTIC_ALIAS_CONFIG_MIGRATION_VERIFIED`: `DOMAIN_TOKEN_MAP`, `SPELLING`,

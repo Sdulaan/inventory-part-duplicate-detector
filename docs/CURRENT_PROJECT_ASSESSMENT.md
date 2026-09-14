@@ -1,5 +1,18 @@
 # Current project assessment
 
+## Ambiguous alias portability review complete
+
+`AMBIGUOUS_ALIAS_REVIEW_RECOMMENDS_DISABLE_PENDING_VALIDATION`: neither
+`co -> coconut` nor `a -> amp` has repository evidence of client/domain
+approval. The historical 5,327-row CSV shows standalone `co` only in three
+selected `CO SO MRP` descriptions, while global `a` changes 46 selected
+descriptions across electrical and non-electrical contexts. An isolated
+128-record diagnostic found no `co` downstream delta; suppressing `a` changed
+one Strong edge/group to Review without changing membership or cannot-links.
+No runtime/reference semantic changed and provider calls are 0. The next
+smallest task is a separate reference-v2 removal of standalone `co`; `a`
+contextualization remains separate. See `AMBIGUOUS_ALIAS_PORTABILITY_REVIEW.md`.
+
 ## Core semantic aliases are explicit deterministic reference data
 
 `SEMANTIC_ALIAS_CONFIG_MIGRATION_VERIFIED`: the exact 19-entry domain-token,
