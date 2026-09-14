@@ -56,7 +56,7 @@ export function exportSuccessFeedback(kind) {
 }
 
 export function exportFailureFeedback(kind, status) {
-  const subject = kind === 'reviewed' ? 'Reviewed identity export' : 'System suggestions export'
+  const subject = (kind === 'reviewed' || kind === 'reviewed-xlsx') ? 'Reviewed identity export' : 'System suggestions export'
   if (Number(status) === 404) return `${subject} is not available for this scan.`
   if (Number(status) === 409) return `${subject} could not be prepared because the identity result is not ready. Reload the scan result and try again.`
   if (Number(status) === 422) return `${subject} could not be prepared from the selected authoritative result.`
