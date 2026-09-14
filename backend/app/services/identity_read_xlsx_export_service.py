@@ -17,12 +17,20 @@ from app.services.identity_group_presentation import (
     human_review_presentation,
     system_evidence_tier,
 )
-from app.services.identity_read_export_service import authority_selected_system_group_rows
+from app.services.identity_read_export_service import (
+    authority_selected_reviewed_identity_rows,
+    authority_selected_system_group_rows,
+)
 
 
 WORKBOOK_NOTICE = (
     "System-generated groups are suggestions requiring human review. "
     "They are not automatic merge instructions."
+)
+REVIEWED_WORKBOOK_NOTICE = (
+    "This workbook contains only current human-confirmed same-identity sets from "
+    "the exact authority-selected review chain. Rejected, deferred, and superseded "
+    "decisions are excluded. Human decisions are operationally authoritative."
 )
 SHEET_ORDER = (
     "Overview",
@@ -54,6 +62,10 @@ TECHNICAL_REFERENCE_COLUMNS = (
     "Stable Record Reference", "Projection Contract", "Source Projection Run",
     "Original System Reason",
 )
+REVIEWED_SET_COLUMNS = (
+    "Reviewed Identity Set", "Group Reference", "Review Decision", "Reviewer",
+    "Reviewed At", "Review Comment", "Member Count",
+)
 
 # Backward-compatible imports now describe the corresponding client sheets.
 GROUP_COLUMNS = GROUP_INDEX_COLUMNS
@@ -64,6 +76,11 @@ _SOURCE_COLUMNS = (
     "Commodity Group 01", "Commodity Group 02", "Safety Code",
     "Accounting Group", "Product Code", "Product Family", "Product Category",
     "HSN/SAC Code",
+)
+ALL_REVIEWED_COLUMNS = REVIEWED_SET_COLUMNS + _SOURCE_COLUMNS
+_REVIEWED_WIDTHS = (
+    20, 30, 32, 22, 18, 42, 14,
+    20, 48, 18, 16, 18, 22, 22, 16, 20, 18, 20, 20, 18,
 )
 _MEMBER_FIELD_BY_COLUMN = {
     "Part Number": "part_no",
@@ -539,10 +556,11 @@ def _write_reviewed_summary(workbook, scan, snapshot, rows) -> None:
 def _reviewed_set_values(index: int, set_rows: list[dict]) -> tuple:
     first_row = set_rows[0]
     decision = first_row["review_decision_type"]
+    label, _ = human_review_presentation({"reviewed": True, "current_decision_type": decision})
     return (
         f"RS-{index:06d}",
         first_row["group_reference"],
-        _REVIEW_LABELS.get(decision, decision),
+        label,
         first_row["reviewer"],
         first_row["reviewed_at"],
         first_row.get("review_comment") or "",
@@ -575,7 +593,7 @@ def authority_selected_reviewed_identities_to_xlsx(db, scan_id: int) -> bytes:
         set_values = _reviewed_set_values(set_index, set_rows)
         first_data_row = row_number
         for member_row in set_rows:
-            _write_row(sheet, row_number, set_values + _member_values(member_row))
+            _write_row(sheet, row_number, set_values + _source_values(member_row))
             row_number += 1
         last_data_row = row_number - 1
         if last_data_row > first_data_row:
@@ -589,11 +607,13 @@ def authority_selected_reviewed_identities_to_xlsx(db, scan_id: int) -> bytes:
                 sheet.cell(first_data_row, column).alignment = Alignment(
                     vertical="top", wrap_text=column in (3, 6)
                 )
+        fill = _GROUP_FILLS[set_index % len(_GROUP_FILLS)]
         for row_index in range(first_data_row, last_data_row + 1):
             for column in range(1, len(REVIEWED_SET_COLUMNS) + 1):
-                sheet.cell(row_index, column).fill = _GROUP_FILL
+                sheet.cell(row_index, column).fill = fill
+        _style_state(sheet.cell(first_data_row, 3), set_values[2])
 
-    _style_dimensions(sheet, _REVIEWED_WIDTHS)
+    _set_widths(sheet, _REVIEWED_WIDTHS)
     last_column = get_column_letter(len(ALL_REVIEWED_COLUMNS))
     sheet.auto_filter.ref = f"A1:{last_column}{max(1, sheet.max_row)}"
     if sheet.max_row >= 2:

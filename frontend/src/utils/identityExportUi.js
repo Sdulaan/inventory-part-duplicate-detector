@@ -50,7 +50,7 @@ export function reviewedExportGuidance(state) {
 }
 
 export function exportSuccessFeedback(kind) {
-  if (kind === 'reviewed') return 'Reviewed identity export prepared. This file contains current human-confirmed same-identity sets only.'
+  if (kind === 'reviewed' || kind === 'reviewed-xlsx') return 'Reviewed identity export prepared. This file contains current human-confirmed same-identity sets only.'
   if (kind === 'system-csv' || kind === 'system-xlsx') return 'System suggestions export prepared. This file contains machine-generated review hypotheses.'
   return 'Supporting analytical export prepared.'
 }
