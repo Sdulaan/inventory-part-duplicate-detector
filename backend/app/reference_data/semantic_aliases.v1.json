@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "reference_version": "semantic-aliases-v1",
+  "domain_token_map": {
+    "dec": "desiccated",
+    "desicated": "desiccated",
+    "decicated": "desiccated",
+    "decicatted": "desiccated",
+    "coco": "coconut",
+    "co": "coconut",
+    "c01": "type 1",
+    "co1": "type 1",
+    "c02": "type 2",
+    "co2": "type 2",
+    "flt": "filter",
+    "filt": "filter",
+    "gen": "generator",
+    "hvac": "hvac",
+    "ss": "stainless steel",
+    "stl": "steel",
+    "bat": "battery",
+    "temp": "temperature",
+    "press": "pressure"
+  },
+  "spelling": {
+    "decicated": "desiccated",
+    "decicatted": "desiccated"
+  },
+  "abbreviations": {
+    "piece": "pcs",
+    "pieces": "pcs",
+    "pcs": "pcs",
+    "ss": "stainless steel",
+    "mcb": "miniature circuit breaker",
+    "cu": "copper",
+    "filtration": "filter",
+    "filtering": "filter",
+    "amp": "amp",
+    "amps": "amp",
+    "a": "amp"
+  }
+}

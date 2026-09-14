@@ -262,3 +262,20 @@ load the same defaults deterministically, preserve exact current outputs, add a
 configuration fingerprint, and add tests that prove no score/GF4/GF5 behavior
 changes. Do not include thresholds, GF5 policy, site policy, UOM consequences,
 object incompatibility, or any provider integration in that first step.
+
+## Follow-up completed: core semantic aliases externalized
+
+The selected next task is complete with classification
+`SEMANTIC_ALIAS_CONFIG_MIGRATION_VERIFIED`. The three named maps now have one
+authoritative packaged JSON source at
+`backend/app/reference_data/semantic_aliases.v1.json`, schema version 1,
+reference version `semantic-aliases-v1`, and canonical logical SHA-256
+`0484679a78e61b2f3564c40ca7ef7f7d2b69c1a98e24d24ecdedf65eccdc4367`.
+The loader validates strictly, rejects duplicate keys, fails closed, and
+exports immutable mappings. All alias values and behavior are unchanged.
+
+The remaining audit rows retain their original classifications. In particular,
+generic/noise vocabularies, other retrieval and part-code aliases, object and
+directional vocabularies, UOM/schema aliases, thresholds/caps, GF4/GF5 policy,
+review semantics, and possible future advisory LLM cases were not moved or
+modified. See `SEMANTIC_ALIAS_REFERENCE_MIGRATION.md`.

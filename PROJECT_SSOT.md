@@ -1,5 +1,18 @@
 # Group-first inventory identity project SSOT
 
+## Core semantic aliases externalized without behavior change
+
+`SEMANTIC_ALIAS_CONFIG_MIGRATION_VERIFIED`: `DOMAIN_TOKEN_MAP`, `SPELLING`,
+and `ABBREVIATIONS` now load once from the schema-v1 packaged deterministic
+reference `backend/app/reference_data/semantic_aliases.v1.json`. Exact entry
+counts, pre-migration map fingerprints, risky sentinel aliases, normalization,
+candidate/GF4/GF5 behavior, and bounded end-to-end behavior are preserved. The
+maps are read-only, invalid or duplicate-key data fails closed, and the logical
+reference fingerprint is
+`0484679a78e61b2f3564c40ca7ef7f7d2b69c1a98e24d24ecdedf65eccdc4367`.
+No identity semantics, provider boundary, or frontend behavior changed. See
+`docs/SEMANTIC_ALIAS_REFERENCE_MIGRATION.md`.
+
 ## Repeated-scan semantic determinism verified
 
 `DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`: retrieval ranking now uses a

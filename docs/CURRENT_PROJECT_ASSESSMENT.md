@@ -1,5 +1,18 @@
 # Current project assessment
 
+## Core semantic aliases are explicit deterministic reference data
+
+`SEMANTIC_ALIAS_CONFIG_MIGRATION_VERIFIED`: the exact 19-entry domain-token,
+2-entry spelling, and 11-entry abbreviation maps now come from one packaged,
+schema-validated JSON reference. Loading is once per process, duplicate keys
+and malformed contracts fail closed, runtime views are immutable, and the
+canonical logical SHA-256 is
+`0484679a78e61b2f3564c40ca7ef7f7d2b69c1a98e24d24ecdedf65eccdc4367`.
+Existing normalization and bounded candidate/GF4/GF5/end-to-end behavior pass
+unchanged with zero provider calls. This is a reference-data migration only,
+not a full semantic registry or policy system. See
+`SEMANTIC_ALIAS_REFERENCE_MIGRATION.md`.
+
 ## Repeated scans are semantically deterministic
 
 `DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`: three fresh 5,327-row scans with
