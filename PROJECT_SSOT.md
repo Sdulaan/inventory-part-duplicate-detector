@@ -1,5 +1,149 @@
 # Group-first inventory identity project SSOT
 
+## Ambiguous global aliases reviewed without runtime change
+
+`AMBIGUOUS_ALIAS_REVIEW_RECOMMENDS_DISABLE_PENDING_VALIDATION`: repository
+history and the historical 5,327-row CSV contain no client/domain validation
+for `co -> coconut` or `a -> amp`. Standalone `co` affects three `CO SO MRP`
+descriptions and should lose global authority in a separate bounded task;
+global `a` affects 46 descriptions and should later move to deterministic
+contextual configuration. A 128-record suppression diagnostic changed no
+membership, conflict, or cannot-link, but suppressing `a` moved one Strong edge
+and group to Review. Runtime/reference behavior remains unchanged and provider
+calls are 0. See `docs/AMBIGUOUS_ALIAS_PORTABILITY_REVIEW.md`.
+
+## Core semantic aliases externalized without behavior change
+
+`SEMANTIC_ALIAS_CONFIG_MIGRATION_VERIFIED`: `DOMAIN_TOKEN_MAP`, `SPELLING`,
+and `ABBREVIATIONS` now load once from the schema-v1 packaged deterministic
+reference `backend/app/reference_data/semantic_aliases.v1.json`. Exact entry
+counts, pre-migration map fingerprints, risky sentinel aliases, normalization,
+candidate/GF4/GF5 behavior, and bounded end-to-end behavior are preserved. The
+maps are read-only, invalid or duplicate-key data fails closed, and the logical
+reference fingerprint is
+`0484679a78e61b2f3564c40ca7ef7f7d2b69c1a98e24d24ecdedf65eccdc4367`.
+No identity semantics, provider boundary, or frontend behavior changed. See
+`docs/SEMANTIC_ALIAS_REFERENCE_MIGRATION.md`.
+
+## Repeated-scan semantic determinism verified
+
+`DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED`: retrieval ranking now uses a
+scan-independent content-fingerprint plus source-row key, fresh and cached
+character vectors share the existing seven-decimal representation before
+scoring, and GF5 bounded traversal uses canonical semantic member/partition
+keys rather than scan-local hypothesis IDs. Three fresh 5,327-row scans (cold,
+warm, warm) have identical S0-S10 semantic fingerprints and exactly 171,251
+GF5 partition explorations. The corrected output is 158 advisory groups (45
+Stronger Evidence, 113 Review Evidence), 27 conflicts, 40 deferred work units,
+and 4,982 unassigned records. Safety/review/XLSX verification passes and
+provider calls are 0. The five-term `GF5_PARTITION_POLICY_V1` objective is
+unchanged. See `docs/DETERMINISM_CACHE_AND_GF5_ORDERING_FIX.md`.
+
+## Final advisory demo rehearsal passed
+
+`FINAL_DEMO_REHEARSAL_GO`: the provider-free, non-Docker 17-row synthetic live
+flow completed from validation and current-product scan through G2_V2 results,
+three evidence explanations, Confirm/Reject/Defer, browser refresh, reviewed
+CSV, and the client-readable XLSX. The live scan completed in under one second,
+so it is reliable enough to be primary; a pre-completed synthetic result and
+known-good XLSX are ready as fallbacks. Safe terminology and system/human
+authority separation passed with no unsupported percentage claim. Runtime and
+`GF5_PARTITION_POLICY_V1` remain unchanged; provider calls are 0. The advisory
+demo-safe product is frozen for demo.
+
+## Demo-safe advisory product is ready for rehearsal
+
+`DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`: the group-first UI, system CSV,
+and bounded XLSX export now present unreviewed results as `Potential
+Same-Identity Group` plus `Requires Human Review`. Confirmed, rejected, and
+deferred human decisions visually override the system suggestion. The workbook
+uses `Summary`, `Candidate Groups`, and `Group Data` with explicit system/human
+authority separation and no unsupported probability, accuracy, or confidence
+percentage. Runtime detector semantics and `GF5_PARTITION_POLICY_V1` are frozen
+and unchanged; provider calls are 0. Curated data must be labelled
+`DEMONSTRATION / WALKTHROUGH EXAMPLES`, while real rows remain unvalidated
+candidates. Full verification passed. `NEXT = FINAL_DEMO_REHEARSAL`.
+
+## R18J-0 exhausts existing Strong evidence and defines the demo envelope
+
+`R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`: 67 observations from all
+existing Senior evidence reconcile to 53 canonical post-R18C Strong pairs—40
+SAME, 10 DIFFERENT, and 3 with conflicting labels across review rounds. Of the
+10 unconflicted DIFFERENT pairs, only one is source-visible-actionable, and its
+technical-conflict signal harms three SAME controls. All 18 transparent
+candidate families are contradicted or non-actionable; no runtime correction
+or <=12-pair check is justified. Runtime/GF5 remain unchanged and provider
+calls are 0. Demo posture is advisory, nothing auto-merges, human review is
+authoritative, and candidates must say “Requires Human Review.” `NEXT =
+DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`.
+
+## R18I finds no safe general correction from the consumed holdout
+
+`R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`: all six rejected Likely groups are
+two-member `ALL_STRONG` hypotheses, as are both accepted Likely controls. The
+mechanical defect is a false-positive Strong pair in each rejection; GF5's
+frozen objective is not the primary cause, and the current all-Strong promotion
+rule is operating as specified. S1-S4 cannot separate cases, while a trusted
+path gate would downgrade both accepted holdout controls and 5/6 Development
+SAME Likely controls yet retain one failure. Runtime and
+`GF5_PARTITION_POLICY_V1` remain unchanged; provider calls are 0. The holdout is
+`CONSUMED_FOR_DIAGNOSTIC_USE`, and any future correction requires a new
+independent holdout. `NEXT = NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`.
+
+## R18G-C consumed holdout reveals a critical Likely-group defect
+
+`R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`: the consumed N=16
+group holdout found 6 Medium-confidence human NOT ONE judgments among 8 frozen
+accepted Likely groups. Hard cannot-link and disjoint-membership invariants both
+passed, and Review noise is not treated as an automatic merge failure, but the
+repeated client-visible Likely rejection pattern fails graduation Gate E.
+`GF5_PARTITION_POLICY_V1` and runtime remain frozen/unchanged; no post-reveal
+tuning is authorized. `NEXT = ARCHITECT_REVIEW_HOLDOUT_DEFECT`.
+
+The chronological sections below preserve their stage-time facts; any statement
+that labels were unseen is historical and superseded by this consumed status.
+
+## R18H current GF5 partition policy frozen
+
+`R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`: `GF5_PARTITION_POLICY_V1` freezes
+the unchanged objective `(covered, likely_members, strong, -review,
+-group_count)`. Review remains useful lower-authority/higher-ambiguity evidence;
+suppression is not authorized. `GF5-GROUP-PARTITION-RESIDUAL-MIXING` stays OPEN
+because the preferred current objective is not perfect. R18C and Bicycle/generic
+safety are preserved, runtime is unchanged, provider calls are 0, and the
+sealed holdout remains unseen. After the R18H commit and clean verification,
+`NEXT = R18G_C_SEALED_HOLDOUT_VALIDATION`.
+
+## R18G-B2 supports the current GF5 partition objective
+
+`R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`: the validated targeted Senior
+partitions prefer current in both Development comparison sets. Current exactly
+matches the Candle 3+2 human partition; for four human-singleton MLR records,
+current makes two false pair co-memberships while ADR makes all six. Cannot-link
+safety is preserved, the sealed holdout remains unseen, runtime/GF5 is
+unchanged, and provider calls are 0. `NEXT =
+R18H_FREEZE_CURRENT_GF5_PARTITION_POLICY`; only then proceed later to R18G-C.
+
+## R18G-B1 targeted partition package awaiting human input
+
+`R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`: a deterministic blinded
+workbook now requests only the internal partitions of development groups
+`R18G-D09438A953125080` (five members) and `R18G-FFF38D9F3046F48C` (four
+members). Their prior whole-group judgments and source evidence are immutable;
+all nine partition assignments remain blank. The sealed holdout remains unseen,
+runtime/GF5 is unchanged, and provider calls are 0. Give only the workbook to
+the same Senior and follow
+`docs/R18G_TARGETED_PARTITION_COMPLETION_INSTRUCTIONS.md`.
+
+## R18G-B development evidence evaluation
+
+`R18G_B_PARTITION_DETAIL_REQUIRED`: the validated single-Senior DEVELOPMENT
+reference contains 11 SAME, 32 normalized NOT ONE, and five INSUFFICIENT group
+judgments. The three ADR challengers yield two unresolved comparisons and one
+human-insufficient comparison; no objective change is authorized. Request
+partitions only for `R18G-D09438A953125080` and `R18G-FFF38D9F3046F48C`.
+The holdout remains unseen, runtime/GF5 is unchanged, and provider calls are 0.
+
 ## R18G-A group human evidence prepared
 
 `R18G_AWAITING_GROUP_HUMAN_REVIEW`: two independent blinded workbooks now hold
@@ -590,3 +734,16 @@ an ignored local artifact path. Human labels completed are 0. GF-12A2 is now
 COMPLETE, or ground truth. No production semantic or authority changed. The
 detector, R12, R16, R17, GF-11, performance waiver/debt, and deployment states
 remain unchanged.
+
+## Post-rehearsal XLSX client UX polish
+
+The one-time presentation exception is
+`DEMO_XLSX_CLIENT_UX_POLISH_READY`. The authority-selected XLSX now opens on
+`Overview`, uses `Review Groups` to merge only group-level columns A:G across
+each exact member block, keeps `Detailed Data` flat/filterable, and relocates
+canonical IDs and stable references to the final `Technical Reference` sheet.
+Scan 34 retained exactly 158 groups, 341 members, 51 Stronger Evidence and 107
+Review Evidence groups, all requiring human review. Detector/GF5 semantics,
+membership, decisions, API/CSV contracts, frontend behavior, and provider calls
+remain unchanged; provider calls are zero. The containing commit subject is
+`Polish client XLSX review experience`.

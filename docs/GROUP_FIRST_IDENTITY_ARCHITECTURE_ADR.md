@@ -220,11 +220,11 @@ Human `MUST_LINK` is strong evidence only when compatible with every protected d
 5. **Attach review evidence.** Review-support edges propose cell merges but do not force them. Competing attachments or overlapping ownership are marked ambiguous.
 6. **Detect bridge risk.** Identify articulation records, bridge edges, low-redundancy branches, generic hubs, and support paths whose endpoints lack compatible evidence.
 7. **Acquire targeted evidence.** Evaluate missing cross-branch pairs, attribute outliers, alternative attachment endpoints, and any pair needed to settle a protected constraint. Do not evaluate unrelated global pairs.
-8. **Run bounded partition search.** For a small or still-ambiguous work unit, explore a capped set of partitions. Constraints are lexicographic: zero cannot-links inside a block; satisfy effective human constraints; maximize retained strong support; then review support; minimize neutral internal relationships and ambiguous ownership. A tie at the configured resolution margin is deferred rather than broken arbitrarily.
+8. **Run bounded partition search.** For a small or still-ambiguous work unit, explore a capped set of partitions. Safety first prohibits cannot-links inside a block and requires effective human constraints. The authoritative versioned selection objective is `GF5_PARTITION_POLICY_V1`: `(covered, likely_members, strong, -review, -group_count)`. It maximizes covered members, then members in Likely groups, then Strong-support contribution, then prefers fewer Review-support contributions, then fewer groups. Review remains useful but lower-authority/higher-ambiguity evidence; its quantity is not rewarded in otherwise equivalent choices. If complete objectives tie, emit only groups common to every best partition and defer unresolved ownership rather than selecting a winner arbitrarily. See `GF5_PARTITION_POLICY.md`.
 9. **Salvage stable subgroups.** Emit a subgroup only if its membership is stable across admissible best partitions, it is disjoint from already emitted groups, and its required checks are complete. Conflicting or ambiguous members remain diagnostic/unassigned.
 10. **Classify.** Apply categorical group-state rules and persist the resolution manifest for the G2 adapter.
 
-The resolver is deterministic for identical inputs, configuration, and versions. Ordering keys and tie behavior are part of the versioned contract.
+The resolver is deterministic for identical inputs, configuration, and versions. Ordering keys and the equal-best stable-intersection/defer behavior are part of the versioned `GF5_PARTITION_POLICY_V1` contract. Changing them requires new group-level evidence and explicit architecture authorization.
 
 ### Validation modes
 

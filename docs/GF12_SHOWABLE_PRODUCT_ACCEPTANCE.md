@@ -1,5 +1,81 @@
 # GF-12C1 showable product acceptance checklist
 
+## Final demo rehearsal acceptance
+
+`FINAL_DEMO_REHEARSAL_GO`: all final advisory-demo gates passed on the approved
+17-row synthetic fixture. The live current-product scan, group page, at least
+three evidence explanations, Confirm/Reject/Defer authority, refresh, reviewed
+CSV, and XLSX all completed. The workbook cleanly separates four system
+suggestions from one confirmation, one rejection, one deferred decision, and
+one unreviewed candidate. Unsafe certainty wording and unsupported percentages
+were absent. The live path is primary; a pre-completed result and known-good
+XLSX are ready. Runtime/GF5 are unchanged and provider calls are 0.
+
+## Demo-safe presentation acceptance passed
+
+All demo-safety gates pass. Unreviewed internal Likely and Review statuses are
+shown as `Potential Same-Identity Group` and `Requires Human Review`; human
+Confirm, Reject, and Defer outcomes dominate the display. The primary XLSX
+contains `Summary`, `Candidate Groups`, and `Group Data`, separates advisory
+system evidence from human decisions/comments, and preserves member data and
+reviewed-export authority. Unsupported accuracy/probability/confidence claims
+are absent from current demo surfaces. Runtime and GF5 are unchanged, provider
+calls are 0, backend/frontend tests and the frontend production build pass.
+Classification: `DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL`; next:
+`FINAL_DEMO_REHEARSAL`.
+
+## R18J-0 demo-safe acceptance boundary
+
+No safe Strong correction is supported by existing evidence. For the upcoming
+demo, the product is acceptable only as an advisory workflow: nothing
+auto-merges, human review remains authoritative, and every candidate is framed
+as a “Potential Same-Identity Group” or “System-Suggested Candidate Group” that
+“Requires Human Review.” Do not claim confirmed duplicates, accuracy,
+precision, or confidence percentages. Curated rows must be labelled
+`DEMONSTRATION / WALKTHROUGH EXAMPLES`; client rows remain unvalidated
+candidates. Classification is `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR` and
+`NEXT = DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`.
+
+## R18I diagnostic outcome
+
+Graduation remains blocked. R18I found that all failed and accepted holdout
+Likely groups share complete all-Strong two-member topology; a trusted-path
+gate over-corrects known positives and still misses one failure. No safe general
+runtime correction is proven, GF5 remains frozen, and provider calls are zero.
+`R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`; `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`. The consumed holdout cannot validate a
+future change, so a new independent holdout is mandatory after any correction.
+
+## R18G-C holdout graduation blocker
+
+Demo-productization graduation is blocked. The consumed N=16 group holdout
+preserved cannot-link and membership safety but found a repeated quality pattern:
+6 of 8 frozen accepted Likely groups were judged NOT ONE at Medium confidence.
+This fails the generalized-defect gate and is not ordinary Review noise.
+Classification is `R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT`; next
+is `ARCHITECT_REVIEW_HOLDOUT_DEFECT`, with no post-reveal tuning in R18G-C.
+
+Lower sections are historical snapshots; any earlier unseen-label statement is
+superseded by this consumed holdout result.
+
+## R18H GF5 policy freeze
+
+`R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN` reconciles the ADR to the unchanged
+runtime objective `(covered, likely_members, strong, -review, -group_count)`.
+This Development-backed policy freeze does not claim perfect resolution or
+production accuracy: `GF5-GROUP-PARTITION-RESIDUAL-MIXING` remains OPEN. R18C,
+the 21 Bicycle Review edges, generic deferral, and Head/Tail cannot-link safety
+remain unchanged. The sealed holdout remains unseen and may be evaluated only
+in the separately authorized R18G-C stage after the R18H commit is verified.
+
+## R18G-B development evidence
+
+The single-Senior DEVELOPMENT group reference is valid, but the GF5/ADR question
+is not resolved: two decisive multi-member NOT ONE challenger judgments lack
+partitions. Classification is `R18G_B_PARTITION_DETAIL_REQUIRED`; external demo
+acceptance remains blocked. Holdout labels are unseen, provider calls are zero,
+and no product behavior changed.
+
 ## R18G-A group-evidence preparation
 
 `R18G_AWAITING_GROUP_HUMAN_REVIEW`: 48 DEVELOPMENT and 16 SEALED HOLDOUT blinded

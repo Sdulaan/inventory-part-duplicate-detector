@@ -197,8 +197,8 @@ def test_machine_and_human_status_labels_are_business_safe(client, db):
     exported = rows(client.get("/api/scans/1/identity-groups/export.csv"))
     labels = {(row["duplicate_group_status"], row["duplicate_group_status_label"]) for row in exported}
     assert labels == {
-        ("LIKELY_DUPLICATE_GROUP", "Likely duplicate group"),
-        ("POSSIBLE_DUPLICATE_GROUP_REVIEW", "Possible duplicate group — review"),
+        ("LIKELY_DUPLICATE_GROUP", "Potential Same-Identity Group"),
+        ("POSSIBLE_DUPLICATE_GROUP_REVIEW", "Potential Same-Identity Group"),
     }
     assert all("confirmed" not in label.lower() for _, label in labels)
 

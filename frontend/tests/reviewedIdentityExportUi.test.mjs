@@ -24,7 +24,7 @@ test('canonical reviewed identity export has a distinct authority-selected route
     filename: 'scan-21-reviewed-identity-sets.csv',
   })
   assert.match(exportPanelSource, /Reviewed Identity Export/)
-  assert.match(exportPanelSource, /Export confirmed duplicate sets \(CSV\)/)
+  assert.match(exportPanelSource, /Export human-confirmed identity sets \(CSV\)/)
   assert.match(exportPanelSource, /Export system suggestions as CSV/)
   assert.match(exportPanelSource, /Export system suggestions as Excel/)
 })

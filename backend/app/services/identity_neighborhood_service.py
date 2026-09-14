@@ -98,13 +98,15 @@ def _plan_neighborhoods(run, records, proposals, max_members: int):
     configuration_fingerprint = neighborhood_configuration_fingerprint(max_members)
     inherited_warnings = tuple(sorted(set(json.loads(run.warning_codes_json or "[]"))))
     plans = []
-    for anchor_id in sorted(adjacency, key=lambda value: by_id[value].record_ref_key):
+    for anchor_id in sorted(
+        adjacency, key=lambda value: by_id[value].retrieval_order_key
+    ):
         direct = sorted(
             adjacency[anchor_id],
             key=lambda item: (
                 -float(item[1].proposal_priority or 0),
                 int(item[1].proposal_order),
-                by_id[item[0]].record_ref_key,
+                by_id[item[0]].retrieval_order_key,
             ),
         )
         selected = tuple(direct[: max_members - 1])

@@ -34,9 +34,9 @@ test('seven-member group retains all members for lazy detail', () => assertWhole
 test('fourteen-member group does not truncate', () => assertWholeGroup(14))
 
 test('group wording never claims confirmation and unknown values render safely', () => {
-  assert.equal(groupStatusLabel('LIKELY_DUPLICATE_GROUP'), 'Likely duplicate group')
-  assert.equal(groupStatusLabel('POSSIBLE_DUPLICATE_GROUP_REVIEW'), 'Possible duplicate group — review')
-  assert.equal(groupStatusLabel('FUTURE_STATUS'), 'Unknown group status (FUTURE_STATUS)')
+  assert.equal(groupStatusLabel('LIKELY_DUPLICATE_GROUP'), 'Potential Same-Identity Group')
+  assert.equal(groupStatusLabel('POSSIBLE_DUPLICATE_GROUP_REVIEW'), 'Potential Same-Identity Group')
+  assert.equal(groupStatusLabel('FUTURE_STATUS'), 'System-Suggested Candidate Group (FUTURE_STATUS)')
 })
 
 test('UOM warnings remain mapping observations separate from identity', () => {

@@ -22,6 +22,7 @@ from app.services.identity_group_query_service import (
     InvalidSnapshotSelectionError,
     SnapshotNotFoundError,
 )
+from app.services.identity_group_presentation import system_candidate_label
 
 
 IDENTITY_GROUP_EXPORT_FIELDS = [
@@ -46,8 +47,10 @@ IDENTITY_DIAGNOSTIC_EXPORT_FIELDS = [
 ]
 
 _GROUP_LABELS = {
-    "LIKELY_DUPLICATE_GROUP": "Likely duplicate group",
-    "POSSIBLE_DUPLICATE_GROUP_REVIEW": "Possible duplicate group — review",
+    "LIKELY_DUPLICATE_GROUP": system_candidate_label("LIKELY_DUPLICATE_GROUP"),
+    "POSSIBLE_DUPLICATE_GROUP_REVIEW": system_candidate_label(
+        "POSSIBLE_DUPLICATE_GROUP_REVIEW"
+    ),
 }
 
 _DIAGNOSTIC_LABELS = {

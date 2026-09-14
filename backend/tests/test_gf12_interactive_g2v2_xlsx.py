@@ -9,6 +9,7 @@ import zipfile
 from xml.etree import ElementTree
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.cell_range import CellRange
 
 from app.core.config import Settings
@@ -91,10 +92,10 @@ def _package(payload: bytes):
     return {
         "archive": archive,
         "grouped": ElementTree.fromstring(archive.read("xl/worksheets/sheet2.xml")),
-        "flat": ElementTree.fromstring(archive.read("xl/worksheets/sheet3.xml")),
+        "flat": ElementTree.fromstring(archive.read("xl/worksheets/sheet4.xml")),
         "table": ElementTree.fromstring(archive.read("xl/tables/table1.xml")),
         "rels": ElementTree.fromstring(
-            archive.read("xl/worksheets/_rels/sheet3.xml.rels")
+            archive.read("xl/worksheets/_rels/sheet4.xml.rels")
         ),
     }
 
@@ -212,8 +213,8 @@ def test_excel_table_range_columns_name_and_relationship_are_valid(db, client):
     ).content
     package = _package(payload)
     workbook = load_workbook(io.BytesIO(payload), data_only=False)
-    flat = workbook["Group Data"]
-    expected_ref = f"A1:T{flat.max_row}"
+    flat = workbook["Detailed Data"]
+    expected_ref = f"A1:{get_column_letter(len(flat[1]))}{flat.max_row}"
     assert package["table"].attrib["ref"] == expected_ref
     assert package["table"].attrib["name"] == "SystemGroupData"
     assert package["table"].attrib["displayName"] == "SystemGroupData"
@@ -221,9 +222,9 @@ def test_excel_table_range_columns_name_and_relationship_are_valid(db, client):
 
     columns_node = package["table"].find(f"{{{_MAIN_NS}}}tableColumns")
     columns = columns_node.findall(f"{{{_MAIN_NS}}}tableColumn")
-    assert int(columns_node.attrib["count"]) == len(columns) == 20
-    assert [int(item.attrib["id"]) for item in columns] == list(range(1, 21))
-    assert len({item.attrib["name"] for item in columns}) == 20
+    assert int(columns_node.attrib["count"]) == len(columns) == len(flat[1])
+    assert [int(item.attrib["id"]) for item in columns] == list(range(1, len(flat[1]) + 1))
+    assert len({item.attrib["name"] for item in columns}) == len(flat[1])
     assert tuple(item.attrib["name"] for item in columns) == tuple(
         cell.value for cell in flat[1]
     )
@@ -235,9 +236,9 @@ def test_r6_19_merged_ranges_are_valid_and_non_overlapping(db, client):
         f"/api/scans/{scan_id}/identity-read/system-groups/export.xlsx"
     ).content
     workbook = load_workbook(io.BytesIO(payload), data_only=False)
-    ranges = [CellRange(str(item)) for item in workbook["Duplicate Groups"].merged_cells]
+    ranges = [CellRange(str(item)) for item in workbook["Review Groups"].merged_cells]
     for index, left in enumerate(ranges):
-        assert left.min_row >= 2 and left.min_col <= 6
+        assert left.min_row >= 2 and left.min_col <= 7
         for right in ranges[index + 1:]:
             assert not (
                 left.min_row <= right.max_row and right.min_row <= left.max_row
@@ -254,8 +255,8 @@ def test_r6_21_round_trip_retains_table_and_single_filter(db, client):
     output = io.BytesIO()
     workbook.save(output)
     reopened = load_workbook(io.BytesIO(output.getvalue()), data_only=False)
-    assert tuple(reopened["Group Data"].tables) == ("SystemGroupData",)
-    assert reopened["Group Data"].auto_filter.ref is None
+    assert tuple(reopened["Detailed Data"].tables) == ("SystemGroupData",)
+    assert reopened["Detailed Data"].auto_filter.ref is None
     round_trip = _package(output.getvalue())
     assert len(round_trip["table"].findall(f"{{{_MAIN_NS}}}autoFilter")) == 1
     assert round_trip["flat"].findall(f"{{{_MAIN_NS}}}autoFilter") == []
@@ -274,8 +275,8 @@ def test_r6_22_to_r6_25_api_csv_xlsx_exact_scan_parity(db, client):
     import csv
     csv_rows = list(csv.DictReader(io.StringIO(csv_response.text)))
     workbook = load_workbook(io.BytesIO(xlsx_response.content), data_only=False)
-    headers = [cell.value for cell in workbook["Group Data"][1]]
-    values = [dict(zip(headers, row, strict=True)) for row in workbook["Group Data"].iter_rows(
+    headers = [cell.value for cell in workbook["Technical Reference"][1]]
+    values = [dict(zip(headers, row, strict=True)) for row in workbook["Technical Reference"].iter_rows(
         min_row=2, values_only=True
     )]
     expected_keys = {
@@ -287,12 +288,12 @@ def test_r6_22_to_r6_25_api_csv_xlsx_exact_scan_parity(db, client):
     assert {
         row["stable_record_reference"] for row in csv_rows
     } == {
-        str(row["Source Row / Stable Record Reference"]).split(" / ")[-1]
+        row["Stable Record Reference"]
         for row in values
     }
     summary = {
-        row[0].value: row[1].value
-        for row in workbook["Summary"].iter_rows(min_row=2, max_col=2)
+        row[0].value: row[2].value
+        for row in workbook["Overview"].iter_rows(min_row=22, max_col=3)
     }
-    assert summary["Scan identifier"] == scan_id
-    assert summary["Projection contract"] == "G2_V2"
+    assert summary["Scan ID"] == scan_id
+    assert summary["Projection Contract"] == "G2_V2"

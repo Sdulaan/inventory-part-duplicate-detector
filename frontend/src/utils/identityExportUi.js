@@ -10,11 +10,21 @@ export function summarizeReviewedExportAvailability(groups = [], totalGroups = g
   const affirmativeGroups = states.filter(state => (
     state.reviewed && AFFIRMATIVE_DECISIONS.has(state.current_decision_type)
   )).length
+  const rejectedGroups = states.filter(state => (
+    state.reviewed && state.current_decision_type === 'KEEP_ALL_SEPARATE'
+  )).length
+  const deferredGroups = states.filter(state => (
+    state.reviewed && state.current_decision_type === 'UNSURE'
+  )).length
+  const unreviewedGroups = Math.max(0, (Number(totalGroups) || 0) - reviewedGroups)
   return {
     status: 'ready',
     total_groups: Number(totalGroups) || 0,
     reviewed_groups: reviewedGroups,
     affirmative_groups: affirmativeGroups,
+    rejected_groups: rejectedGroups,
+    deferred_groups: deferredGroups,
+    unreviewed_groups: unreviewedGroups,
     has_confirmed_sets: affirmativeGroups > 0,
     is_partial_review: reviewedGroups < (Number(totalGroups) || 0),
   }
@@ -29,9 +39,9 @@ export function reviewedExportGuidance(state) {
   }
   if (!state.has_confirmed_sets) {
     if (state.reviewed_groups > 0) {
-      return 'No confirmed duplicate sets are available. Current Reject or Defer decisions create no reviewed duplicate set.'
+      return 'No human-confirmed same-identity sets are available. Current Reject or Defer decisions create no reviewed identity set.'
     }
-    return 'No confirmed duplicate sets are available yet. Review and confirm groups before exporting operational results.'
+    return 'No human-confirmed same-identity sets are available yet. Review candidates before exporting operational results.'
   }
   if (state.is_partial_review) {
     return 'This export contains only currently confirmed identity sets. Some system groups remain unreviewed; rejected, deferred, and superseded decisions are excluded.'
@@ -40,7 +50,7 @@ export function reviewedExportGuidance(state) {
 }
 
 export function exportSuccessFeedback(kind) {
-  if (kind === 'reviewed' || kind === 'reviewed-xlsx') return 'Reviewed identity export prepared. This file contains current human-confirmed identity sets only.'
+  if (kind === 'reviewed') return 'Reviewed identity export prepared. This file contains current human-confirmed same-identity sets only.'
   if (kind === 'system-csv' || kind === 'system-xlsx') return 'System suggestions export prepared. This file contains machine-generated review hypotheses.'
   return 'Supporting analytical export prepared.'
 }

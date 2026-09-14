@@ -21,8 +21,8 @@ export default function ExportAuthorityPanel({
       <article className="export-authority-card system-export-card" aria-labelledby="system-export-heading">
         <p className="authority-label">System suggestions</p>
         <h3 id="system-export-heading">System Group Export</h3>
-        <p>Contains system-generated groups for analysis and review. These are not human-confirmed duplicate identities.</p>
-        <small>Use this export to inspect or share the system's current duplicate hypotheses. Groups may still require review.</small>
+        <p>Contains system-suggested same-identity candidates for analysis and review. Every suggestion requires human review.</p>
+        <small>No records are automatically merged, deleted, or changed in IFS.</small>
         <div className="actions">
           <button type="button" disabled={Boolean(busyKind)} onClick={() => onDownload('system-csv', targets.systemGroups)}>
             {busyKind === 'system-csv' ? 'Preparing system CSV…' : 'Export system suggestions as CSV'}
@@ -36,11 +36,11 @@ export default function ExportAuthorityPanel({
       <article className="export-authority-card reviewed-export-card" aria-labelledby="reviewed-export-heading">
         <p className="authority-label">Reviewed decisions</p>
         <h3 id="reviewed-export-heading">Reviewed Identity Export</h3>
-        <p>Contains only current human-confirmed identity sets. It is the operationally authoritative duplicate-set export.</p>
+        <p>Contains only current human-confirmed same-identity sets. Human decisions are operationally authoritative.</p>
         <small>{reviewedExportGuidance(reviewedState)}</small>
         <div className="actions">
           <button type="button" disabled={reviewedDisabled} onClick={() => onDownload('reviewed', targets.reviewedIdentities)}>
-            {busyKind === 'reviewed' ? 'Preparing reviewed CSV…' : 'Export confirmed duplicate sets (CSV)'}
+            {busyKind === 'reviewed' ? 'Preparing reviewed CSV…' : 'Export human-confirmed identity sets (CSV)'}
           </button>
           <button type="button" disabled={reviewedDisabled} onClick={() => onDownload('reviewed-xlsx', targets.reviewedIdentitiesExcel)}>
             {busyKind === 'reviewed-xlsx' ? 'Preparing reviewed Excel…' : 'Export confirmed duplicate sets (Excel)'}

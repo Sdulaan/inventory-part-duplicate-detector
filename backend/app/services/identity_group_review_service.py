@@ -522,12 +522,14 @@ class VersionedIdentityGroupReviewService:
                 VersionedIdentityGroupReviewEvent.versioned_group_key.in_(tuple(keys)),
                 successor.id.is_(None),
             ).all()
-            events = {row.versioned_group_key: row for row in rows}
+            events_by_key = {row.versioned_group_key: row for row in rows}
+            events = {key: events_by_key.get(key) for key in keys}
         return {
             key: {
                 "reviewed": event is not None,
                 "current_decision_type": event.decision_type if event else None,
                 "reviewer": event.reviewer if event else None,
+                "comment": event.comment if event else None,
                 "reviewed_at": event.created_at if event else None,
                 "current_review_event_id": event.id if event else None,
             }

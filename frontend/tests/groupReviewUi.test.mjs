@@ -34,9 +34,9 @@ function base(size, decisionType, extra = {}) {
 
 
 test('not-reviewed and every reviewed indicator are separate from system status', () => {
-  assert.equal(groupReviewLabel({ reviewed: false }), 'Not reviewed')
+  assert.equal(groupReviewLabel({ reviewed: false }), 'Requires Human Review')
   for (const decision of ['CONFIRM_ALL_AS_ONE', 'CONFIRM_SELECTED', 'SPLIT_PARTITIONS', 'KEEP_ALL_SEPARATE', 'UNSURE']) {
-    assert.match(groupReviewLabel({ reviewed: true, current_decision_type: decision }), /^Reviewed/)
+    assert.match(groupReviewLabel({ reviewed: true, current_decision_type: decision }), /^(Human|Review)/)
   }
 })
 

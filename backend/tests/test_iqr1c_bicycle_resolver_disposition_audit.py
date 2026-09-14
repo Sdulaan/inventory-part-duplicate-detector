@@ -127,7 +127,7 @@ def test_case_d_cannot_link_never_enters_one_group_and_remains_visible():
         IdentityConflictType.PROTECTED_CANNOT_LINK,
     )
     assert result.deferred_work_units[0].reason == (
-        DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY
+        DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY
     )
 
 
@@ -138,7 +138,7 @@ def test_case_e_four_complete_all_review_has_equal_pair_partitions():
     assert result.deferred_work_units[0].reason == (
         DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY
     )
-    assert result.metrics.candidate_partitions_explored == 104
+    assert result.metrics.candidate_partitions_explored == 96
 
 
 def test_case_f_two_member_review_is_an_accepted_review_hypothesis():
@@ -169,7 +169,7 @@ def test_bicycle_shape_generic_only_clique_fails_group_cohesion_before_partition
     assert result.deferred_work_units[0].reason == (
         DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY
     )
-    assert result.metrics.candidate_partitions_explored == 1730
+    assert result.metrics.candidate_partitions_explored == 1540
 
 
 def test_non_generic_full_clique_is_valid_before_current_partition_objective():

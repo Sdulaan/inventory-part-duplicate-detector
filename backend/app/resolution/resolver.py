@@ -96,6 +96,7 @@ class _Candidate:
     group: IdentityGroupHypothesis
     members: frozenset[int]
     objective: tuple[int, int, int]
+    semantic_member_key: tuple[str, ...] = ()
 
 
 _REQUEST_PRIORITY = {
@@ -108,6 +109,20 @@ _REQUEST_PRIORITY = {
 
 def _pair(left: int, right: int) -> tuple[int, int]:
     return (left, right) if left < right else (right, left)
+
+
+def _semantic_record_keys(value: IdentityResolutionInput) -> dict[int, str]:
+    """Map persistence IDs to scan-independent record ordering identities."""
+    return {
+        record.record_id: record.retrieval_order_key
+        for record in value.canonical_records
+    }
+
+
+def _semantic_member_key(
+    semantic_keys: dict[int, str], member_ids,
+) -> tuple[str, ...]:
+    return tuple(sorted(semantic_keys[member] for member in member_ids))
 
 
 def _normalize_input(value: IdentityResolutionInput) -> IdentityResolutionInput:
@@ -152,6 +167,7 @@ class _UnionFind:
 
 
 def _work_units(value: IdentityResolutionInput) -> tuple[_WorkUnit, ...]:
+    semantic_keys = _semantic_record_keys(value)
     record_ids = tuple(record.record_id for record in value.canonical_records)
     union = _UnionFind(record_ids)
     active = set()
@@ -186,7 +202,10 @@ def _work_units(value: IdentityResolutionInput) -> tuple[_WorkUnit, ...]:
             truncated=any(item.truncated for item in neighborhoods),
             degraded=any(item.degraded for item in neighborhoods),
         ))
-    return tuple(sorted(output, key=lambda item: item.member_ids))
+    return tuple(sorted(
+        output,
+        key=lambda item: _semantic_member_key(semantic_keys, item.member_ids),
+    ))
 
 
 def _machine_lookup(value):
@@ -253,6 +272,7 @@ def _target_reason(left, right, member_ids, lookup):
 
 def _targeted_requests(value, unit, lookup):
     references = {record.record_id: record.record_ref_key for record in value.canonical_records}
+    semantic_keys = _semantic_record_keys(value)
     requests = []
     for left, right in combinations(unit.member_ids, 2):
         if (left, right) in lookup:
@@ -273,7 +293,8 @@ def _targeted_requests(value, unit, lookup):
         )
         requests.append(with_targeted_request_fingerprint(request))
     return tuple(sorted(requests, key=lambda item: (
-        _REQUEST_PRIORITY[item.reason], item.record_id_1, item.record_id_2,
+        _REQUEST_PRIORITY[item.reason],
+        tuple(sorted((semantic_keys[item.record_id_1], semantic_keys[item.record_id_2]))),
         item.request_fingerprint,
     )))
 
@@ -448,6 +469,7 @@ def _candidate_groups_reference(value, unit, lookup, targeted_results, counters)
     limit = value.resolver_configuration.complete_pairwise_member_limit
     maximum_explored = _candidate_generation_limit(value)
     candidates = []
+    semantic_keys = _semantic_record_keys(value)
     exhausted = False
     starting_count = counters.candidate_partitions_explored
     for size in range(min(len(unit.member_ids), limit), 1, -1):
@@ -469,11 +491,14 @@ def _candidate_groups_reference(value, unit, lookup, targeted_results, counters)
                     == IdentityGroupHypothesisStatus.LIKELY_DUPLICATE_GROUP else 0,
                     summary.strong_support_count,
                 ),
+                semantic_member_key=_semantic_member_key(semantic_keys, members),
             ))
         if exhausted:
             break
     unique = {candidate.group.hypothesis_fingerprint: candidate for candidate in candidates}
-    return tuple(sorted(unique.values(), key=lambda item: item.group.hypothesis_id)), exhausted
+    return tuple(sorted(
+        unique.values(), key=lambda item: item.semantic_member_key
+    )), exhausted
 
 
 def _candidate_groups(value, unit, lookup, targeted_results, counters):
@@ -522,7 +547,11 @@ def _select_partition(value, candidates, counters):
             strong = sum(group.evidence_summary.strong_support_count for group in groups)
             review = sum(group.evidence_summary.review_support_count for group in groups)
             objective = (covered, likely_members, strong, -review, -len(groups))
-            signature = tuple(sorted(group.hypothesis_fingerprint for group in groups))
+            signature = tuple(sorted(
+                candidates[item].semantic_member_key
+                or (candidates[item].group.hypothesis_fingerprint,)
+                for item in selected
+            ))
             if best_objective is None or objective > best_objective:
                 best_objective = objective
                 best_partitions.clear()
@@ -540,17 +569,18 @@ def _select_partition(value, candidates, counters):
     visit(0, (), frozenset())
     if exhausted or not best_partitions:
         return (), True, False
-    by_fingerprint = {
-        candidate.group.hypothesis_fingerprint: candidate.group
+    by_semantic_key = {
+        candidate.semantic_member_key
+        or (candidate.group.hypothesis_fingerprint,): candidate.group
         for candidate in candidates
     }
     if len(best_partitions) == 1:
         signature = next(iter(best_partitions))
-        return tuple(sorted((by_fingerprint[item] for item in signature),
-                            key=lambda item: item.hypothesis_id)), False, False
+        return tuple(
+            by_semantic_key[item] for item in signature
+        ), False, False
     common = set.intersection(*(set(partition) for partition in best_partitions))
-    stable = tuple(sorted((by_fingerprint[item] for item in common),
-                          key=lambda item: item.hypothesis_id))
+    stable = tuple(by_semantic_key[item] for item in sorted(common))
     return stable, False, True
 
 

@@ -432,13 +432,25 @@ def test_or24_only_bounded_xlsx_export_changes_in_production():
         "backend/app/orchestration/contracts.py",
         "backend/app/api/routes_identity_groups.py",
         "backend/app/identity_read/explanations.py",
-        "backend/app/schemas/identity_groups.py",
-        "backend/app/services/identity_read_export_service.py",
+            "backend/app/schemas/identity_groups.py",
+            "backend/app/schemas/identity_group_reviews.py",
+            "backend/app/services/identity_group_export_service.py",
+            "backend/app/services/identity_group_presentation.py",
+            "backend/app/services/identity_group_review_service.py",
+            "backend/app/services/identity_read_export_service.py",
         "backend/app/services/identity_read_xlsx_export_service.py",
         "backend/app/services/scan_runner.py",
         "backend/app/services/scan_service.py",
-        "backend/app/services/hybrid_retrieval.py",
-    }
+            "backend/app/services/hybrid_retrieval.py",
+            "backend/app/services/canonical_record_service.py",
+            "backend/app/services/character_retrieval.py",
+            "backend/app/services/identity_discovery_service.py",
+            "backend/app/services/identity_neighborhood_service.py",
+            "backend/app/services/lexical_retrieval.py",
+            "backend/app/resolution/contracts.py",
+                "backend/app/resolution/resolver.py",
+                "backend/app/benchmarks/scan_determinism_audit.py",
+            }
     assert set(production) <= allowed
     if not production:
         return
@@ -454,8 +466,9 @@ def test_or24_only_bounded_xlsx_export_changes_in_production():
         or "evaluate_identity_discriminators" in diff
         or "system_explanation" in diff
         or "cross_site_identity_discovery" in diff
-        or "assess_lexical_trust" in diff
-    )
+            or "assess_lexical_trust" in diff
+            or "retrieval_order_key" in diff
+        )
     assert "generate_candidate_pairs" not in diff
     if "assess_lexical_trust" not in diff:
         assert "score_candidate" not in diff

@@ -375,9 +375,9 @@ def test_i14_strategy_fingerprint_changes_with_parameters():
     )
 
 
-def test_i15_v4_contract_remains_frozen_and_embedded():
+def test_i15_scan_independent_v4_contract_is_frozen_and_embedded():
     assert lexical_retrieval_contract_fingerprint(5) == (
-        "aa64c35e13cc2002301e5a4b4736789a14b25041d798e6f6658bef9412dd92e8"
+        "b5cb1e91f75255c96015dc249fb342c61ba0f87fe384e72ecfaefa64d1ccd07e"
     )
     assert lexical_strategy_contract_payload(5)["v4_contract_fingerprint"] == (
         lexical_retrieval_contract_fingerprint(5)

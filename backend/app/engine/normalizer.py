@@ -4,14 +4,8 @@ from typing import Any
 
 from app.core.constants import CRITICAL_MODIFIERS
 from app.engine.domain_dictionary import expand_domain_tokens, normalize_description_with_dictionary, normalize_part_no_with_dictionary
+from app.reference_data.semantic_aliases import ABBREVIATIONS, SPELLING
 
-SPELLING = {"decicated": "desiccated", "decicatted": "desiccated"}
-ABBREVIATIONS = {
-    "piece": "pcs", "pieces": "pcs", "pcs": "pcs",
-    "ss": "stainless steel", "mcb": "miniature circuit breaker",
-    "cu": "copper", "filtration": "filter", "filtering": "filter",
-    "amp": "amp", "amps": "amp", "a": "amp",
-}
 UNITS = {"mm", "cm", "m", "kg", "g", "l", "ml", "v", "volt", "amp", "ph"}
 
 

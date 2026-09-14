@@ -1,7 +1,7 @@
 """Deterministic production strategies for the frozen character-vector channel.
 
 LSH is candidate generation only. Final neighbors always use exact cosine over
-the existing L2-normalized 384-bin vectors and canonical GF-1 tie ordering.
+the existing L2-normalized 384-bin vectors and scan-independent tie ordering.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ import sklearn
 from sklearn.preprocessing import normalize
 
 
-CHARACTER_RETRIEVAL_CONTRACT_VERSION = "character-retrieval-strategy-v1"
-LSH_CONTRACT_VERSION = "fixed-seed-cosine-lsh-exact-rerank-v1"
+CHARACTER_RETRIEVAL_CONTRACT_VERSION = "character-retrieval-strategy-v2"
+LSH_CONTRACT_VERSION = "fixed-seed-cosine-lsh-exact-rerank-v2"
 VECTOR_REPRESENTATION_VERSION = "sklearn-hashing-domain-v1-384-char-wb-3-5"
-EXACT_RERANK_VERSION = "exact-cosine-canonical-tie-v1"
+EXACT_RERANK_VERSION = "exact-cosine-retrieval-order-key-tie-v2"
 ACTIVATION_THRESHOLD = 2_000
 
 
@@ -86,8 +86,8 @@ def _select_candidate_pool_exact(
 ) -> np.ndarray:
     """Return the exact legacy pool order without sorting ineligible priorities.
 
-    Candidate ids are positions in the record-ref-key-sorted LSH index, so
-    ascending integer id is exactly the frozen canonical reference tie rule.
+    Candidate ids are positions in the retrieval-order-key-sorted LSH index, so
+    ascending integer id is exactly the scan-independent tie rule.
     Bit agreement is an integer in the finite [0, tables * bits] domain.
     """
     limit = min(len(candidate_array), gather_limit, candidate_pool_k)
@@ -132,6 +132,8 @@ class CharacterLshResult:
 @dataclass(frozen=True)
 class _CharacterLshIndex:
     matrix: np.ndarray
+    # Historical field name retained for test/internal construction compatibility;
+    # values are scan-independent retrieval-order keys, not record references.
     refs: tuple[str, ...]
     original_positions: np.ndarray
     hyperplanes: np.ndarray
@@ -179,8 +181,10 @@ def character_retrieval_contract_payload(
         "candidate_pool_k": config.candidate_pool_k,
         "bucket_probe_cap_multiplier": config.bucket_probe_cap_multiplier,
         "candidate_gather_multiplier": config.candidate_gather_multiplier,
-        "stable_insertion_order": "record_ref_key-ascending",
-        "candidate_retention_order": "bit-agreement-descending-record-ref-ascending",
+        "stable_insertion_order": "retrieval-order-key-ascending",
+        "candidate_retention_order": (
+            "bit-agreement-descending-retrieval-order-key-ascending"
+        ),
         "exact_rerank_version": EXACT_RERANK_VERSION,
         "final_top_k": final_top_k,
     }
@@ -218,22 +222,22 @@ def generate_lsh_hyperplanes(
     ).reshape(values.shape)
 
 
-def _validated_values(matrix, canonical_record_refs) -> tuple[np.ndarray, tuple[str, ...]]:
+def _validated_values(matrix, retrieval_order_keys) -> tuple[np.ndarray, tuple[str, ...]]:
     values = np.asarray(matrix, dtype=np.float32)
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
     if values.ndim != 2 or values.shape[1] != 384:
         raise CharacterRetrievalError(
             CharacterRetrievalFailureCategory.LSH_CONFIGURATION_INVALID,
             "LSH requires the frozen 384-bin character vectors",
         )
     if (
-        len(refs) != len(values)
-        or any(not value for value in refs)
-        or len(set(refs)) != len(refs)
+        len(order_keys) != len(values)
+        or any(not value for value in order_keys)
+        or len(set(order_keys)) != len(order_keys)
     ):
         raise CharacterRetrievalError(
             CharacterRetrievalFailureCategory.LSH_CONFIGURATION_INVALID,
-            "LSH requires one unique nonblank canonical reference per vector",
+            "LSH requires one unique nonblank retrieval order key per vector",
         )
     norms = np.linalg.norm(values, axis=1)
     if np.any((norms != 0) & ~np.isclose(norms, 1.0, rtol=1e-5, atol=1e-6)):
@@ -241,23 +245,24 @@ def _validated_values(matrix, canonical_record_refs) -> tuple[np.ndarray, tuple[
             CharacterRetrievalFailureCategory.LSH_CONFIGURATION_INVALID,
             "LSH requires L2-normalized character vectors",
         )
-    return values, refs
+    return values, order_keys
 
 
 def _build_lsh_index(
-    matrix, canonical_record_refs, configuration: CharacterLshConfiguration
+    matrix, retrieval_order_keys, configuration: CharacterLshConfiguration
 ) -> _CharacterLshIndex:
     try:
-        values, refs = _validated_values(matrix, canonical_record_refs)
+        values, order_keys = _validated_values(matrix, retrieval_order_keys)
         started = time.perf_counter()
         order = np.asarray(
-            sorted(range(len(refs)), key=lambda item: refs[item]), dtype=np.int64
+            sorted(range(len(order_keys)), key=lambda item: order_keys[item]),
+            dtype=np.int64,
         )
         stable_matrix = np.ascontiguousarray(values[order], dtype=np.float32)
-        stable_refs = tuple(refs[item] for item in order)
+        stable_order_keys = tuple(order_keys[item] for item in order)
         hyperplanes = generate_lsh_hyperplanes(384, configuration)
         signatures = np.empty(
-            (len(refs), configuration.table_count), dtype=np.uint16
+            (len(order_keys), configuration.table_count), dtype=np.uint16
         )
         weights = 1 << np.arange(configuration.bits_per_table, dtype=np.uint16)
         bucket_rows = []
@@ -275,7 +280,7 @@ def _build_lsh_index(
             )
         return _CharacterLshIndex(
             matrix=stable_matrix,
-            refs=stable_refs,
+            refs=stable_order_keys,
             original_positions=order,
             hyperplanes=hyperplanes,
             signatures=signatures,
@@ -306,12 +311,12 @@ def _probe_masks(bits: int, radius: int) -> tuple[int, ...]:
 
 def retrieve_lsh_directed_neighbors(
     matrix,
-    canonical_record_refs,
+    retrieval_order_keys,
     final_top_k: int,
     configuration: CharacterLshConfiguration = PRODUCTION_LSH_CONFIGURATION,
 ) -> CharacterLshResult:
     configuration.validate(final_top_k)
-    index = _build_lsh_index(matrix, canonical_record_refs, configuration)
+    index = _build_lsh_index(matrix, retrieval_order_keys, configuration)
     count = len(index.refs)
     contract_fingerprint = character_retrieval_contract_fingerprint(
         count, final_top_k, configuration
@@ -415,7 +420,10 @@ def retrieve_lsh_directed_neighbors(
                 exact_order = positive_positions[np.lexsort(
                     (
                         np.asarray(
-                            [index.refs[pool[item]] for item in positive_positions],
+                            [
+                                index.refs[pool[item]]
+                                for item in positive_positions
+                            ],
                             dtype=object,
                         ),
                         -scores[positive_positions],

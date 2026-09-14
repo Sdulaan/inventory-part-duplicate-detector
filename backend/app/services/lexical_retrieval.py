@@ -14,7 +14,7 @@ import scipy
 import sklearn
 from sklearn.preprocessing import normalize
 
-LEXICAL_RETRIEVAL_IMPLEMENTATION_VERSION = "exact-indexed-lexical-v1"
+LEXICAL_RETRIEVAL_IMPLEMENTATION_VERSION = "exact-indexed-lexical-v2"
 LEXICAL_RETRIEVAL_STRATEGY = "EXACT_INDEXED_LEXICAL"
 LEXICAL_QUERY_BATCH_SIZE = 64
 LEXICAL_QUERY_WORKERS = 4
@@ -27,7 +27,9 @@ LEXICAL_STRATEGY_THRESHOLD = 25_000
 BOUNDED_PROXY_DEFINITION = (
     "visited-authoritative-tfidf-partial-dot-support"
 )
-BOUNDED_EXACT_RERANK_VERSION = "v4-full-cosine-score-desc-record-ref-asc"
+BOUNDED_EXACT_RERANK_VERSION = (
+    "v4-full-cosine-score-desc-retrieval-order-key-asc"
+)
 
 
 @dataclass(frozen=True)
@@ -117,7 +119,7 @@ def lexical_retrieval_contract_payload(final_top_k: int) -> dict:
         "candidate_rule": "shared-nonzero-tfidf-feature",
         "similarity": "exact-full-precision-cosine",
         "self_exclusion": "before-top-k",
-        "ordering": "score-desc-record-ref-key-asc",
+        "ordering": "score-desc-retrieval-order-key-asc",
         "output_score": "two-decimal-after-selection",
         "final_top_k": final_top_k,
         "query_batch_size": LEXICAL_QUERY_BATCH_SIZE,
@@ -184,8 +186,10 @@ def lexical_strategy_contract_payload(
         "proxy_definition": BOUNDED_PROXY_DEFINITION,
         "exact_rerank_version": BOUNDED_EXACT_RERANK_VERSION,
         "final_top_k": final_top_k,
-        "canonical_ordering": "record-ref-key-ascending-before-candidate-generation",
-        "canonical_tie_rule": "full-score-desc-record-ref-key-asc",
+        "canonical_ordering": (
+            "retrieval-order-key-ascending-before-candidate-generation"
+        ),
+        "canonical_tie_rule": "full-score-desc-retrieval-order-key-asc",
         "post_second_pass_failure_policy": (
             LexicalRetrievalFailureCategory.CANDIDATE_POOL_INSUFFICIENT.value
         ),
@@ -204,35 +208,35 @@ def _percentile(values: np.ndarray, percentile: int) -> int:
     return int(np.percentile(values, percentile, method="higher")) if len(values) else 0
 
 
-def _canonical_top_k_positions(scores, targets, ref_values, top_k):
+def _canonical_top_k_positions(scores, targets, order_values, top_k):
     if len(scores) <= top_k:
-        return np.lexsort((ref_values[targets], -scores))
+        return np.lexsort((order_values[targets], -scores))
     provisional = np.argpartition(-scores, top_k - 1)[:top_k]
     boundary = scores[provisional].min()
     above = np.flatnonzero(scores > boundary)
     tied = np.flatnonzero(scores == boundary)
     needed = top_k - len(above)
     if len(tied) > needed:
-        tied = tied[np.argsort(ref_values[targets[tied]], kind="stable")[:needed]]
+        tied = tied[np.argsort(order_values[targets[tied]], kind="stable")[:needed]]
     selected = np.concatenate((above, tied))
-    return selected[np.lexsort((ref_values[targets[selected]], -scores[selected]))]
+    return selected[np.lexsort((order_values[targets[selected]], -scores[selected]))]
 
 
 def retrieve_exact_indexed_lexical_neighbors(
-    matrix, canonical_record_refs, final_top_k: int,
+    matrix, retrieval_order_keys, final_top_k: int,
 ) -> IndexedLexicalResult:
     """Enumerate shared-feature candidates and rank by exact v4 cosine."""
     count = matrix.shape[0]
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
-    if len(refs) != count or any(not value for value in refs):
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
+    if len(order_keys) != count or any(not value for value in order_keys):
         raise LexicalRetrievalError(
             LexicalRetrievalFailureCategory.INDEX_CONFIGURATION_INVALID,
-            "lexical retrieval requires one canonical record reference per row",
+            "lexical retrieval requires one retrieval order key per row",
         )
-    if len(set(refs)) != count:
+    if len(set(order_keys)) != count:
         raise LexicalRetrievalError(
             LexicalRetrievalFailureCategory.INDEX_CONFIGURATION_INVALID,
-            "lexical retrieval canonical record references must be unique",
+            "lexical retrieval order keys must be unique",
         )
     contract_fingerprint = lexical_retrieval_contract_fingerprint(final_top_k)
     build_started = time.perf_counter()
@@ -254,7 +258,7 @@ def retrieve_exact_indexed_lexical_neighbors(
     query_started = time.perf_counter()
     try:
         transpose = cosine_matrix.T
-        ref_values = np.asarray(refs, dtype=object)
+        order_values = np.asarray(order_keys, dtype=object)
         def query_batch(start):
             similarities = (
                 cosine_matrix[start:start + LEXICAL_QUERY_BATCH_SIZE] @ transpose
@@ -273,7 +277,7 @@ def retrieve_exact_indexed_lexical_neighbors(
                 batch_evaluations += len(targets)
                 batch_max_union = max(batch_max_union, len(targets))
                 order = _canonical_top_k_positions(
-                    scores, targets, ref_values, final_top_k
+                    scores, targets, order_values, final_top_k
                 )
                 rows.append((source, tuple(
                     (int(targets[position]), float(scores[position]))
@@ -317,19 +321,23 @@ def retrieve_exact_indexed_lexical_neighbors(
     return IndexedLexicalResult(directed_neighbors=directed, metrics=metrics)
 
 
-def _validate_and_stabilize(matrix, canonical_record_refs):
+def _validate_and_stabilize(matrix, retrieval_order_keys):
     count = matrix.shape[0]
-    refs = tuple(str(value or "").strip() for value in canonical_record_refs)
-    if len(refs) != count or any(not value for value in refs) or len(set(refs)) != count:
+    order_keys = tuple(str(value or "").strip() for value in retrieval_order_keys)
+    if (
+        len(order_keys) != count
+        or any(not value for value in order_keys)
+        or len(set(order_keys)) != count
+    ):
         raise LexicalRetrievalError(
             LexicalRetrievalFailureCategory.INDEX_CONFIGURATION_INVALID,
-            "lexical retrieval requires one unique canonical record reference per row",
+            "lexical retrieval requires one unique retrieval order key per row",
         )
     order = np.asarray(
-        sorted(range(count), key=lambda index: refs[index]), dtype=np.int64
+        sorted(range(count), key=lambda index: order_keys[index]), dtype=np.int64
     )
     stable = normalize(matrix.tocsr(copy=True)[order], copy=False)
-    return stable, tuple(refs[index] for index in order), order
+    return stable, tuple(order_keys[index] for index in order), order
 
 
 def _rank_rarest_features(features, weights, posting_sizes):
@@ -378,7 +386,7 @@ def _bounded_candidate_pools(
     return pools, posting_visits, unique_candidates
 
 
-def _exact_rerank_pools(matrix, refs, sources, pools, final_top_k):
+def _exact_rerank_pools(matrix, order_keys, sources, pools, final_top_k):
     lengths = [len(pool) for pool in pools]
     targets = (
         np.concatenate([pool for pool in pools if len(pool)])
@@ -389,7 +397,7 @@ def _exact_rerank_pools(matrix, refs, sources, pools, final_top_k):
         np.asarray(matrix[source_rows].multiply(matrix[targets]).sum(axis=1)).reshape(-1)
         if len(targets) else np.empty(0, dtype=np.float64)
     )
-    ref_values = np.asarray(refs, dtype=object)
+    order_values = np.asarray(order_keys, dtype=object)
     directed, offset = {}, 0
     for source, pool, length in zip(sources, pools, lengths):
         current = scores[offset:offset + length]
@@ -397,7 +405,7 @@ def _exact_rerank_pools(matrix, refs, sources, pools, final_top_k):
         positive = current > 0
         positive_pool, positive_scores = pool[positive], current[positive]
         selected = _canonical_top_k_positions(
-            positive_scores, positive_pool, ref_values, final_top_k
+            positive_scores, positive_pool, order_values, final_top_k
         )
         directed[source] = tuple(
             (int(positive_pool[position]), float(positive_scores[position]))
@@ -407,13 +415,13 @@ def _exact_rerank_pools(matrix, refs, sources, pools, final_top_k):
 
 
 def retrieve_bounded_lexical_neighbors(
-    matrix, canonical_record_refs, final_top_k: int,
+    matrix, retrieval_order_keys, final_top_k: int,
 ) -> IndexedLexicalResult:
     """Run the frozen bounded primary and one fixed fail-closed second pass."""
     started = time.perf_counter()
     try:
-        stable, stable_refs, original_positions = _validate_and_stabilize(
-            matrix, canonical_record_refs
+        stable, stable_order_keys, original_positions = _validate_and_stabilize(
+            matrix, retrieval_order_keys
         )
         csc = stable.tocsc(copy=False)
         posting_sizes = np.diff(csc.indptr).astype(np.int64, copy=False)
@@ -440,7 +448,7 @@ def retrieve_bounded_lexical_neighbors(
             primary_unique += unique
             primary_reranks += sum(len(pool) for pool in pools)
             primary_directed.update(_exact_rerank_pools(
-                stable, stable_refs, sources, pools, final_top_k
+                stable, stable_order_keys, sources, pools, final_top_k
             ))
         insufficient = tuple(
             source for source in all_sources
@@ -463,7 +471,7 @@ def retrieve_bounded_lexical_neighbors(
             second_unique += unique
             second_reranks += sum(len(pool) for pool in pools)
             second_directed.update(_exact_rerank_pools(
-                stable, stable_refs, sources, pools, final_top_k
+                stable, stable_order_keys, sources, pools, final_top_k
             ))
         second_ms = (time.perf_counter() - second_started) * 1000
     except LexicalRetrievalError:
@@ -525,14 +533,14 @@ def retrieve_bounded_lexical_neighbors(
 
 
 def retrieve_production_lexical_neighbors(
-    matrix, canonical_record_refs, final_top_k: int,
+    matrix, retrieval_order_keys, final_top_k: int,
 ) -> IndexedLexicalResult:
     """Select only from the frozen deterministic eligible-record count."""
     strategy = select_lexical_strategy(matrix.shape[0])
     if strategy == EXACT_INDEXED_V4:
         return retrieve_exact_indexed_lexical_neighbors(
-            matrix, canonical_record_refs, final_top_k
+            matrix, retrieval_order_keys, final_top_k
         )
     return retrieve_bounded_lexical_neighbors(
-        matrix, canonical_record_refs, final_top_k
+        matrix, retrieval_order_keys, final_top_k
     )

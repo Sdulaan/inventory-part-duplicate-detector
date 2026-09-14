@@ -106,7 +106,9 @@ def test_one_valid_source_row_is_one_snapshot_and_identical_rows_remain_distinct
     assert [row.source_row_index for row in result.records] == [0, 1, 2]
     assert len({row.record_id for row in result.records}) == len(rows)
     assert len({row.record_ref_key for row in result.records}) == len(rows)
+    assert len({row.retrieval_order_key for row in result.records}) == len(rows)
     assert result.records[0].source_record_fingerprint == result.records[1].source_record_fingerprint
+    assert result.records[0].retrieval_order_key != result.records[1].retrieval_order_key
     assert result.records[2].type_code is None
     assert db.query(ScanRecordSnapshot).filter_by(scan_id=scan.id).count() == len(rows)
     assert not {
@@ -132,6 +134,9 @@ def test_scan_local_identity_differs_across_scans_and_catalog_order_is_stable(db
     assert {
         row.record_ref_key for row in first.records
     }.isdisjoint({row.record_ref_key for row in second.records})
+    assert [row.retrieval_order_key for row in first.records] == [
+        row.retrieval_order_key for row in second.records
+    ]
 
 
 def test_existing_header_mapping_populates_canonical_values_without_raw_row_payload(db):

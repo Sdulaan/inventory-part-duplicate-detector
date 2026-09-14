@@ -27,7 +27,7 @@ from app.services.canonical_record_service import (
     load_scan_record_catalog,
 )
 from app.services.hybrid_retrieval import (
-    CANONICAL_RECORD_REF_FIELD, HybridCandidateRetriever,
+    CANONICAL_RECORD_REF_FIELD, RETRIEVAL_ORDER_KEY_FIELD, HybridCandidateRetriever,
     SqlAlchemyEmbeddingVectorCache, canonical_record_pair,
 )
 from app.services.identity_discovery_service import (
@@ -222,6 +222,10 @@ class ScanRunner:
                 row.source_row_index: row.record_ref_key
                 for row in catalog_result.records
             }
+            retrieval_order_keys_by_source = {
+                row.source_row_index: row.retrieval_order_key
+                for row in catalog_result.records
+            }
             engine_records = [
                 row.to_dict() for _, row in usable.reset_index(drop=True).iterrows()
             ]
@@ -285,6 +289,10 @@ class ScanRunner:
                 retrieval_input = usable.copy()
                 retrieval_input[CANONICAL_RECORD_REF_FIELD] = [
                     canonical_refs_by_source[int(source_row_index)]
+                    for source_row_index in retrieval_input[SOURCE_ROW_INDEX_FIELD]
+                ]
+                retrieval_input[RETRIEVAL_ORDER_KEY_FIELD] = [
+                    retrieval_order_keys_by_source[int(source_row_index)]
                     for source_row_index in retrieval_input[SOURCE_ROW_INDEX_FIELD]
                 ]
                 retrieval = HybridCandidateRetriever(

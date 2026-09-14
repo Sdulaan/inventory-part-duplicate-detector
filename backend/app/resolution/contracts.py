@@ -14,7 +14,7 @@ from app.services.canonical_record_service import CanonicalScanRecord
 
 
 RESOLVER_CONTRACT_VERSION = "identity-resolution-contract-v1"
-DEFAULT_RESOLVER_ALGORITHM_VERSION = "constrained-identity-resolver-v1"
+DEFAULT_RESOLVER_ALGORITHM_VERSION = "constrained-identity-resolver-v2-stable-ordering"
 
 
 class IdentityResolutionConstraintType(str, Enum):

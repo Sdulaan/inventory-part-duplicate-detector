@@ -2,8 +2,8 @@ import csv
 import dataclasses
 import io
 
-import pytest
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 from sqlalchemy import text
 
 from app.db.models import DuplicateScan
@@ -14,15 +14,20 @@ from app.services.identity_group_review_service import (
     GroupReviewDecision,
     VersionedIdentityGroupReviewService,
 )
+from app.services.identity_read_export_service import authority_selected_system_group_rows
 from app.services.identity_read_service import (
     IdentityReadAuthorityInconsistent,
     IdentityReadService,
 )
 from app.services.identity_read_xlsx_export_service import (
-    ALL_COLUMNS,
-    GROUP_COLUMNS,
+    DETAILED_DATA_COLUMNS,
+    GROUP_INDEX_COLUMNS,
+    REVIEW_GROUP_COLUMNS,
+    SHEET_ORDER,
+    TECHNICAL_REFERENCE_COLUMNS,
     WORKBOOK_NOTICE,
     authority_selected_system_groups_to_xlsx,
+    concise_reason_for_group_status,
     reason_for_group_status,
 )
 from test_group_first_backend_inversion import authoritative_group, review_scan
@@ -37,6 +42,11 @@ def _rows(sheet):
     return list(sheet.iter_rows(min_row=2, values_only=True))
 
 
+def _dict_rows(sheet):
+    headers = tuple(cell.value for cell in sheet[1])
+    return [dict(zip(headers, row, strict=True)) for row in _rows(sheet)]
+
+
 def _add_scan(db, scan_id=21):
     db.add(DuplicateScan(
         id=scan_id,
@@ -49,16 +59,18 @@ def _add_scan(db, scan_id=21):
     db.commit()
 
 
-def test_xlsx1_to_xlsx15_workbook_contract_membership_merges_and_review(db, client):
+def test_client_workbook_contract_semantics_merges_and_review(db, client):
     scan = review_scan(db)
     snapshot, group = authoritative_group(db, scan)
     refs = tuple(member.stable_record_reference for member in group.members)
+    long_comment = "Review deferred while the client validates equipment context. " * 4
     VersionedIdentityGroupReviewService(db).create_review(
         scan_id=scan.id,
         key=group.versioned_group_key,
         decision_type=GroupReviewDecision.UNSURE,
         reviewer="xlsx-reviewer",
         submitted_members=refs,
+        comment=long_comment,
     )
 
     csv_response = client.get(
@@ -75,70 +87,80 @@ def test_xlsx1_to_xlsx15_workbook_contract_membership_merges_and_review(db, clie
         f'attachment; filename="scan-{scan.id}-system-groups.xlsx"'
     )
     workbook = _workbook(response.content)
-    assert workbook.sheetnames == ["Summary", "Duplicate Groups", "Group Data"]
+    assert tuple(workbook.sheetnames) == SHEET_ORDER
+    assert workbook.active.title == "Overview"
 
-    summary = {
-        row[0].value: row[1].value
-        for row in workbook["Summary"].iter_rows(min_row=2, max_col=2)
-    }
-    assert summary["Notice"] == WORKBOOK_NOTICE
-    assert summary["Authority"] == "System-generated / analytical"
-    assert summary["Human confirmation"] == "Not implied"
-    assert summary["Input record count"] == snapshot.canonical_record_count
-    assert summary["Group count"] == snapshot.group_count
+    overview = workbook["Overview"]
+    overview_text = " ".join(
+        str(cell.value) for row in overview.iter_rows() for cell in row
+        if cell.value is not None
+    )
+    assert "Inventory Identity Review Candidate Report" in overview_text
+    assert WORKBOOK_NOTICE in overview_text
+    assert "Human decisions are authoritative" in overview_text
+    assert overview["A7"].value == "Input Records"
+    assert overview["A8"].value == snapshot.canonical_record_count
+    assert overview["C7"].value == "Candidate Groups"
+    assert overview["C8"].value == snapshot.group_count
+    assert overview["E11"].value == "Deferred / Unreviewed"
+    assert overview["E12"].value == 1
+    assert overview["A22"].value == "Scan ID"
+    assert overview["C22"].value == scan.id
 
-    grouped = workbook["Duplicate Groups"]
-    flat = workbook["Group Data"]
-    assert tuple(cell.value for cell in grouped[1]) == ALL_COLUMNS
-    assert tuple(cell.value for cell in flat[1]) == ALL_COLUMNS
-    assert grouped.freeze_panes == "A2" and flat.freeze_panes == "A2"
+    review = workbook["Review Groups"]
+    index = workbook["Group Index"]
+    flat = workbook["Detailed Data"]
+    technical = workbook["Technical Reference"]
+    assert tuple(cell.value for cell in review[1]) == REVIEW_GROUP_COLUMNS
+    assert tuple(cell.value for cell in index[1]) == GROUP_INDEX_COLUMNS
+    assert tuple(cell.value for cell in flat[1]) == DETAILED_DATA_COLUMNS
+    assert tuple(cell.value for cell in technical[1]) == TECHNICAL_REFERENCE_COLUMNS
+    assert all(sheet.freeze_panes == "A2" for sheet in (review, index, flat, technical))
+    assert not flat.merged_cells.ranges
     assert flat.auto_filter.ref is None
-    assert flat.tables["SystemGroupData"].ref == f"A1:T{flat.max_row}"
+    assert flat.tables["SystemGroupData"].ref == (
+        f"A1:{get_column_letter(len(DETAILED_DATA_COLUMNS))}{flat.max_row}"
+    )
 
     csv_rows = list(csv.DictReader(io.StringIO(csv_response.text)))
-    flat_rows = _rows(flat)
-    assert len(flat_rows) == len(csv_rows) == group.member_count
-    assert {row[1] for row in flat_rows} == {row["group_key"] for row in csv_rows}
-    assert {
-        str(row[-1]).split(" / ")[-1] for row in flat_rows
-    } == {row["stable_record_reference"] for row in csv_rows}
-    assert {row[0] for row in flat_rows} == {"DG-000001"}
-    assert {row[4] for row in flat_rows} == {group.member_count}
-    assert {row[5] for row in flat_rows} == {"Reviewed - unsure"}
-    assert "human review is required" in flat_rows[0][3]
-    assert "human-confirmed" not in flat_rows[0][3]
+    detail_rows = _dict_rows(flat)
+    tech_rows = _dict_rows(technical)
+    assert len(detail_rows) == len(tech_rows) == len(csv_rows) == group.member_count
+    assert {row["Group"] for row in detail_rows} == {"CG-000001"}
+    assert {row["Review Status"] for row in detail_rows} == {"Review Deferred"}
+    assert {row["Evidence"] for row in detail_rows} == {"Review Evidence"}
+    assert {row["Human Decision"] for row in detail_rows} == {
+        "Deferred for later review"
+    }
+    assert {row["Human Comment"] for row in detail_rows} == {long_comment}
+    assert flat["G"][1].alignment.wrap_text is True
+    assert max(flat.row_dimensions[row].height for row in range(2, flat.max_row + 1)) <= 42
 
-    expected_end = 1 + group.member_count
-    for column in "ABCDEF":
-        assert f"{column}2:{column}{expected_end}" in {
-            str(item) for item in grouped.merged_cells.ranges
-        }
-    assert all(item.min_col <= len(GROUP_COLUMNS) for item in grouped.merged_cells.ranges)
+    canonical = serialize_versioned_identity_group_key(group.versioned_group_key)
+    assert {row["Canonical Group ID"] for row in tech_rows} == {canonical}
+    assert {row["Stable Record Reference"] for row in tech_rows} == {
+        row["stable_record_reference"] for row in csv_rows
+    }
+    assert {row["Source Row"] for row in tech_rows} == {
+        int(row["source_row_reference"]) for row in csv_rows
+    }
+    for primary in (review, index, flat):
+        assert "Canonical Group ID" not in tuple(cell.value for cell in primary[1])
+        assert "Stable Record Reference" not in tuple(cell.value for cell in primary[1])
 
-
-def test_xlsx9_xlsx13_repeated_generation_is_semantically_deterministic(db):
-    scan = review_scan(db)
-    generated = [
-        _workbook(authority_selected_system_groups_to_xlsx(db, scan.id))
-        for _ in range(3)
-    ]
-    semantic_rows = [
-        list(book["Group Data"].iter_rows(values_only=True)) for book in generated
-    ]
-    assert semantic_rows[0] == semantic_rows[1] == semantic_rows[2]
-    assert generated[0].sheetnames == generated[1].sheetnames == generated[2].sheetnames
-    merged_ranges = [
-        tuple(sorted(str(item) for item in book["Duplicate Groups"].merged_cells.ranges))
-        for book in generated
-    ]
-    assert merged_ranges[0] == merged_ranges[1] == merged_ranges[2]
-    assert semantic_rows[0][1][0] == "DG-000001"
-    assert semantic_rows[0][1][3] == reason_for_group_status(
-        "POSSIBLE_DUPLICATE_GROUP_REVIEW"
+    expected_merges = {
+        f"{letter}2:{letter}{group.member_count + 1}" for letter in "ABCDEFG"
+    }
+    assert {str(item) for item in review.merged_cells.ranges} == expected_merges
+    assert not any(
+        merged.min_col >= 8 for merged in review.merged_cells.ranges
+    )
+    assert [row["Member #"] for row in _dict_rows(review)] == list(
+        range(1, group.member_count + 1)
     )
 
 
-def test_xlsx7_three_member_group_merges_full_group_range_only(db, monkeypatch):
+def test_three_member_group_is_one_visual_block_with_distinct_members(db, monkeypatch):
     _add_scan(db)
     snapshot = adapt_g2_v2_to_identity_read_snapshot(
         v2_source(), all_records(), source_projection_run_id=202,
@@ -149,14 +171,112 @@ def test_xlsx7_three_member_group_merges_full_group_range_only(db, monkeypatch):
         "load_identity_read_snapshot",
         lambda _self, _scan_id: snapshot,
     )
-    sheet = _workbook(
-        authority_selected_system_groups_to_xlsx(db, 21)
-    )["Duplicate Groups"]
-    ranges = {str(item) for item in sheet.merged_cells.ranges}
-    assert {f"{column}2:{column}4" for column in "ABCDEF"} == ranges
+    workbook = _workbook(authority_selected_system_groups_to_xlsx(db, 21))
+    sheet = workbook["Review Groups"]
+    member_count = snapshot.groups[0].member_count
+    assert member_count >= 3
+    assert {str(item) for item in sheet.merged_cells.ranges} == {
+        f"{letter}2:{letter}{member_count + 1}" for letter in "ABCDEFG"
+    }
+    rows = _dict_rows(sheet)
+    assert len(rows) == member_count
+    assert [row["Member #"] for row in rows] == list(range(1, member_count + 1))
+    assert len({row["Part Number"] for row in rows}) == member_count
+    assert not workbook["Detailed Data"].merged_cells.ranges
 
 
-def test_xlsx21_formula_like_inventory_values_remain_literal_and_source_immutable(
+def test_unreviewed_candidate_requires_human_review_and_reason_is_concise(db, client):
+    scan = review_scan(db)
+    workbook = _workbook(client.get(
+        f"/api/scans/{scan.id}/identity-read/system-groups/export.xlsx"
+    ).content)
+    rows = _dict_rows(workbook["Group Index"])
+    assert {row["Review Status"] for row in rows} == {"Requires Human Review"}
+    assert {row["Human Decision"] for row in rows} == {"Not yet reviewed"}
+    assert {row["Why Suggested"] for row in rows} == {
+        concise_reason_for_group_status("POSSIBLE_DUPLICATE_GROUP_REVIEW")
+    }
+
+
+def test_repeated_generation_is_semantically_and_visually_deterministic(db):
+    scan = review_scan(db)
+    generated = [
+        _workbook(authority_selected_system_groups_to_xlsx(db, scan.id))
+        for _ in range(3)
+    ]
+    for sheet_name in ("Review Groups", "Group Index", "Detailed Data", "Technical Reference"):
+        values = [list(book[sheet_name].iter_rows(values_only=True)) for book in generated]
+        assert values[0] == values[1] == values[2]
+    merges = [
+        tuple(sorted(str(item) for item in book["Review Groups"].merged_cells.ranges))
+        for book in generated
+    ]
+    assert merges[0] == merges[1] == merges[2]
+    assert generated[0]["Technical Reference"]["I2"].value == reason_for_group_status(
+        "POSSIBLE_DUPLICATE_GROUP_REVIEW"
+    )
+
+
+def test_data_level_projection_is_logically_equivalent(db):
+    scan = review_scan(db)
+    _, raw_rows = authority_selected_system_group_rows(db, scan.id)
+    workbook = _workbook(authority_selected_system_groups_to_xlsx(db, scan.id))
+    details = _dict_rows(workbook["Detailed Data"])
+    technical = _dict_rows(workbook["Technical Reference"])
+    assert len(raw_rows) == len(details) == len(technical)
+    labels_by_key = {}
+    for raw in raw_rows:
+        labels_by_key.setdefault(
+            raw["group_key"], f"CG-{len(labels_by_key) + 1:06d}"
+        )
+    for raw, detail, tech in zip(raw_rows, details, technical, strict=True):
+        assert detail["Group"] == labels_by_key[raw["group_key"]]
+        assert tech["Group"] == detail["Group"]
+        assert tech["Canonical Group ID"] == raw["group_key"]
+        assert tech["Stable Record Reference"] == raw["stable_record_reference"]
+        assert tech["Source Row"] == raw["source_row_reference"]
+        assert tech["Part Number"] == raw["part_no"] == detail["Part Number"]
+        assert detail["Description"] == raw["description"]
+        assert detail["Site"] == raw["site_or_contract"]
+        assert detail["Inventory UOM"] == raw["uom"]
+        assert detail["Part Type"] == raw["part_type"]
+        assert detail["Commodity Group 01"] == raw["commodity_group_01"]
+        assert detail["Commodity Group 02"] == raw["commodity_group_02"]
+        assert detail["Safety Code"] == raw["safety_code"]
+        assert detail["Accounting Group"] == raw["accounting_group"]
+        assert detail["Product Code"] == raw["product_code"]
+        assert detail["Product Family"] == raw["product_family"]
+        assert detail["Product Category"] == raw["product_category"]
+        assert detail["HSN/SAC Code"] == raw["hsn_sac"]
+
+
+def test_empty_state_is_friendly_and_structurally_valid(db, monkeypatch):
+    _add_scan(db)
+    snapshot = adapt_g2_v2_to_identity_read_snapshot(
+        v2_source(), all_records(), source_projection_run_id=202,
+        source_orchestration_run_id=9,
+    )
+    empty = dataclasses.replace(
+        snapshot, groups=(), group_count=0, likely_group_count=0,
+        review_group_count=0,
+    )
+    monkeypatch.setattr(
+        IdentityReadService,
+        "load_identity_read_snapshot",
+        lambda _self, _scan_id: empty,
+    )
+    workbook = _workbook(authority_selected_system_groups_to_xlsx(db, 21))
+    assert tuple(workbook.sheetnames) == SHEET_ORDER
+    assert workbook["Overview"]["C8"].value == 0
+    assert workbook["Review Groups"]["A2"].value == (
+        "No candidate groups were generated for this scan."
+    )
+    assert workbook["Group Index"].max_row == 1
+    assert workbook["Detailed Data"].max_row == 1
+    assert workbook["Technical Reference"].max_row == 1
+
+
+def test_formula_like_inventory_values_remain_literal_and_source_immutable(
     db, client, monkeypatch
 ):
     _add_scan(db)
@@ -166,15 +286,10 @@ def test_xlsx21_formula_like_inventory_values_remain_literal_and_source_immutabl
     )
     original_member = original.groups[0].members[0]
     changed_member = dataclasses.replace(
-        original_member,
-        part_no="=1+1",
-        description="+ABC",
-        contract="-XYZ",
-        uom="@PART",
+        original_member, part_no="=1+1", description="+ABC", contract="-XYZ", uom="@PART"
     )
     changed_group = dataclasses.replace(
-        original.groups[0],
-        members=(changed_member,) + original.groups[0].members[1:],
+        original.groups[0], members=(changed_member,) + original.groups[0].members[1:]
     )
     snapshot = dataclasses.replace(original, groups=(changed_group,))
     monkeypatch.setattr(
@@ -182,33 +297,28 @@ def test_xlsx21_formula_like_inventory_values_remain_literal_and_source_immutabl
         "load_identity_read_snapshot",
         lambda _self, _scan_id: snapshot,
     )
-
     response = client.get("/api/scans/21/identity-read/system-groups/export.xlsx")
     assert response.status_code == 200
-    row = _workbook(response.content)["Group Data"][2]
-    for index, expected in ((6, "=1+1"), (7, "+ABC"), (8, "-XYZ"), (9, "@PART")):
+    row = _workbook(response.content)["Detailed Data"][2]
+    for index, expected in ((7, "=1+1"), (8, "+ABC"), (9, "-XYZ"), (10, "@PART")):
         assert row[index].value == expected
         assert row[index].data_type == "s"
     assert original_member.part_no != changed_member.part_no
 
 
-def test_xlsx16_failed_and_xlsx17_incomplete_orchestration_fail_closed(
-    db, client
-):
+def test_failed_and_incomplete_orchestration_fail_closed(db, client):
     for status in ("FAILED", "RUNNING"):
         scan = review_scan(db)
         db.execute(text(
-            "UPDATE scan_orchestration_run SET status = :status "
-            "WHERE scan_id = :scan_id"
+            "UPDATE scan_orchestration_run SET status = :status WHERE scan_id = :scan_id"
         ), {"status": status, "scan_id": scan.id})
         db.commit()
-        response = client.get(
+        assert client.get(
             f"/api/scans/{scan.id}/identity-read/system-groups/export.xlsx"
-        )
-        assert response.status_code == 409
+        ).status_code == 409
 
 
-def test_xlsx18_corrupt_authority_fails_closed(db, client, monkeypatch):
+def test_corrupt_authority_fails_closed(db, client, monkeypatch):
     scan = review_scan(db)
     monkeypatch.setattr(
         IdentityReadService,
@@ -217,10 +327,9 @@ def test_xlsx18_corrupt_authority_fails_closed(db, client, monkeypatch):
             IdentityReadAuthorityInconsistent("corrupt persisted authority")
         ),
     )
-    response = client.get(
+    assert client.get(
         f"/api/scans/{scan.id}/identity-read/system-groups/export.xlsx"
-    )
-    assert response.status_code == 422
+    ).status_code == 422
 
 
 def test_authority_missing_projection_is_not_ready(db, client):
@@ -238,7 +347,7 @@ def test_authority_missing_projection_is_not_ready(db, client):
     assert "G2_V2_PROJECTION_MISSING" in response.json()["detail"]
 
 
-def test_xlsx19_cross_scan_membership_is_not_combined(db, client):
+def test_cross_scan_membership_is_not_combined(db, client):
     first = review_scan(db)
     second = review_scan(db)
     _, first_group = authoritative_group(db, first)
@@ -246,7 +355,10 @@ def test_xlsx19_cross_scan_membership_is_not_combined(db, client):
     workbook = _workbook(client.get(
         f"/api/scans/{second.id}/identity-read/system-groups/export.xlsx"
     ).content)
-    canonical_ids = {row[1] for row in _rows(workbook["Group Data"])}
+    canonical_ids = {
+        row["Canonical Group ID"]
+        for row in _dict_rows(workbook["Technical Reference"])
+    }
     assert canonical_ids == {
         serialize_versioned_identity_group_key(second_group.versioned_group_key)
     }
@@ -255,7 +367,7 @@ def test_xlsx19_cross_scan_membership_is_not_combined(db, client):
     ) not in canonical_ids
 
 
-def test_xlsx20_provider_calls_are_zero(db, client, monkeypatch):
+def test_provider_calls_are_zero(db, client, monkeypatch):
     scan = review_scan(db)
 
     async def forbidden_provider_call(*_args, **_kwargs):
@@ -267,12 +379,16 @@ def test_xlsx20_provider_calls_are_zero(db, client, monkeypatch):
     ).status_code == 200
 
 
-def test_xlsx22_xlsx23_xlsx26_has_no_truth_secrets_formulas_or_writeback(db, client):
+def test_no_unsupported_claims_secrets_formulas_or_writeback(db, client):
     scan = review_scan(db)
     workbook = _workbook(client.get(
         f"/api/scans/{scan.id}/identity-read/system-groups/export.xlsx"
     ).content)
-    forbidden = ("truth", "ground truth", "api key", "credential", "password", "merge target")
+    forbidden = (
+        "ground truth", "api key", "credential", "password", "merge target",
+        "likely duplicate", "confirmed duplicate", "high-confidence duplicate",
+        "accuracy", "probability", "confidence %",
+    )
     for sheet in workbook.worksheets:
         for row in sheet.iter_rows():
             for cell in row:

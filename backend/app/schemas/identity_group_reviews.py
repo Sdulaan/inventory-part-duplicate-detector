@@ -82,6 +82,7 @@ class GroupReviewStateResponse(BaseModel):
     reviewed: bool = False
     current_decision_type: GroupReviewDecisionType | None = None
     reviewer: str | None = None
+    comment: str | None = None
     reviewed_at: datetime | None = None
     current_review_event_id: int | None = None
 

@@ -1,0 +1,36 @@
+{
+  "classification": "DETERMINISM_CACHE_AND_GF5_ORDERING_VERIFIED",
+  "provider_calls": 0,
+  "runs": [
+    {"scan_id": 1, "cache_state": "cold", "full_scan_seconds": 270.8831554, "candidate_partitions_explored": 171251},
+    {"scan_id": 2, "cache_state": "warm", "full_scan_seconds": 270.3503127, "candidate_partitions_explored": 171251},
+    {"scan_id": 3, "cache_state": "warm", "full_scan_seconds": 281.8372924, "candidate_partitions_explored": 171251}
+  ],
+  "semantic_stages": [
+    {"stage": "S0_CANONICAL_RECORD_SNAPSHOTS", "count": 5327, "fingerprint": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257"},
+    {"stage": "S1_CANDIDATE_DISCOVERY_PROPOSALS", "count": 20492, "fingerprint": "4f2df0eb716ec0d9b06ec65c33cfb6cca1673ccce84559dfe56fbc9f42cdd2fd"},
+    {"stage": "S2_DETERMINISTIC_EVIDENCE_INPUTS", "count": 20492, "fingerprint": "726f1206ede9210c10fdcc797c594523887a41156453cb981c82315a0d9ad38f"},
+    {"stage": "S3_GF4_CLASSIFIED_EVIDENCE_EDGES", "count": 20492, "fingerprint": "682473a17a9edcbf66e940194a6287852a057f32655863948459bb12fc975468"},
+    {"stage": "S4_GF5_ELIGIBLE_NEIGHBORHOODS", "count": 1313, "fingerprint": "7fe6c3e5138cf3274ccc8bcf786f6accd1528af3e9690f06d20230a6b5c97259"},
+    {"stage": "S5_GF5_OBJECTIVE_INPUTS", "count": 1, "fingerprint": "268e78c48b662ff301dde75d68a4792e994350b41f2dc4c9abc2aff0cbbdb6b9"},
+    {"stage": "S6_GF5_SELECTED_GROUPS", "count": 158, "fingerprint": "a84dbe3aca0391c688ab79ea0723bc95b168d70ef0741a1c09259f43fe7c006a"},
+    {"stage": "S7_GF5_CONFLICTS", "count": 27, "fingerprint": "aeecfb4f30e9a00819fc2a6b5f414e55768032730d2a67805f646d3f7c0af860"},
+    {"stage": "S8_GF5_DEFERRED", "count": 40, "fingerprint": "6de165cafcdd79dfb469e5060b604ab19d84fb0b31e590edcbeb40c71b9ae2b0"},
+    {"stage": "S9_GF5_UNASSIGNED", "count": 4982, "fingerprint": "cdbab036c0dad18e918c56edb0a976d24317a74d3240cfe82a0ea99e7e2742c6"},
+    {"stage": "S10_G2_V2_GROUP_PROJECTION", "count": 158, "fingerprint": "0a8a5ba1c699d9f810d1c555509a462d04530b113f8564c8c9d9b5edd92e341b"}
+  ],
+  "corrected_counts": {
+    "groups": 158,
+    "stronger_evidence": 45,
+    "review_evidence": 113,
+    "conflicts": 27,
+    "deferred": 40,
+    "unassigned": 4982,
+    "accepted_cannot_link_violations": 0,
+    "duplicate_accepted_memberships": 0
+  },
+  "historical_comparison": {
+    "scan_34": {"common": 131, "corrected_only": 27, "historical_only": 27},
+    "scan_35": {"common": 132, "corrected_only": 26, "historical_only": 25}
+  }
+}

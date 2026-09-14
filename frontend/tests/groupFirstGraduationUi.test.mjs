@@ -118,11 +118,11 @@ test('F15 product export controls use only canonical authority-selected endpoint
   })
   assert.match(exportPanel, /Export system suggestions as CSV/)
   assert.match(exportPanel, /Export system suggestions as Excel/)
-  assert.match(exportPanel, /Export confirmed duplicate sets \(CSV\)/)
+  assert.match(exportPanel, /Export human-confirmed identity sets \(CSV\)/)
 })
 
 test('F16 valid zero-group rendering is distinct from not-ready rendering', () => {
-  assert.match(page, /ready authoritative snapshot contains zero potential duplicate groups/)
+  assert.match(page, /ready result contains zero system-suggested candidate groups/)
   assert.match(page, /identity-\$\{summaryError\.kind\}/)
 })
 

@@ -1,7 +1,7 @@
-export default function SystemExplanation({ explanation, compact = false, heading = 'Why the system surfaced this' }) {
+export default function SystemExplanation({ explanation, compact = false, heading = 'Why the system suggested this group' }) {
   if (!explanation) return null
   if (compact) {
-    return <p className="system-explanation-preview"><b>Why it was surfaced:</b> {explanation.summary}</p>
+    return <p className="system-explanation-preview"><b>Why the system suggested this group:</b> {explanation.summary}</p>
   }
   return <section className="system-explanation" aria-label={heading}>
     <p className="eyebrow">{heading}</p>

@@ -2,28 +2,7 @@ import re
 from functools import lru_cache
 from typing import Any
 
-
-DOMAIN_TOKEN_MAP = {
-    "dec": "desiccated",
-    "desicated": "desiccated",
-    "decicated": "desiccated",
-    "decicatted": "desiccated",
-    "coco": "coconut",
-    "co": "coconut",
-    "c01": "type 1",
-    "co1": "type 1",
-    "c02": "type 2",
-    "co2": "type 2",
-    "flt": "filter",
-    "filt": "filter",
-    "gen": "generator",
-    "hvac": "hvac",
-    "ss": "stainless steel",
-    "stl": "steel",
-    "bat": "battery",
-    "temp": "temperature",
-    "press": "pressure",
-}
+from app.reference_data.semantic_aliases import DOMAIN_TOKEN_MAP
 
 
 def _tokenize(text: Any) -> list[str]:

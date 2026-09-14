@@ -1,5 +1,79 @@
 # Group-first identity migration roadmap
 
+## Demo-safe productization completed
+
+`DEMO_SAFE_PRODUCTIZATION_READY_FOR_REHEARSAL` is complete as a presentation
+and export boundary only. System output is an advisory candidate; human review
+is authoritative. The bounded XLSX revision separates suggestion, evidence
+tier, and human decision without starting XLSX-vNext. Runtime grouping,
+evidence, membership, GF5 policy, signatures, thresholds, and cannot-link rules
+remain unchanged. Group Confidence Index, LLM work, Identity Context Projection,
+deployment/IAM/IFS integration, new resolver work, and GF11 performance work
+remain unauthorized. `NEXT = FINAL_DEMO_REHEARSAL`.
+
+## R18J-0 evidence-exhaustion overlay
+
+R18J-0 is `R18J_0_NO_SAFE_SOURCE_VISIBLE_DISCRIMINATOR`. All available Senior
+pair, Development group/partition, consumed-holdout, and R18I evidence is now
+exhausted. No repeated zero-harm source-visible signal exists, and no <=12-pair
+check is warranted. Keep runtime and GF5 frozen. `NEXT =
+DEMO_SAFE_PRODUCTIZATION_WITHOUT_ACCURACY_OVERCLAIM`: implement only truthful
+advisory presentation in a separately authorized task. New independent human
+validation remains mandatory after any future runtime correction.
+
+## R18I diagnostic overlay
+
+R18I is `R18I_NO_SAFE_GENERAL_CAUSE_PROVEN`. The consumed holdout localizes the
+mechanical failure to false-positive Strong pair evidence in six two-member
+groups, but no tested status or evidence feature separates those failures from
+known positives safely. GF5 remains frozen and runtime is unchanged. `NEXT =
+NEW_HUMAN_EVIDENCE_FOR_UNRESOLVED_CAUSE`; do not start R18J, R19A, LLM runtime,
+or XLSX-vNext. Any later correction must be validated on a new independent
+human-labelled holdout.
+
+## R18G-C failure overlay
+
+R18G-C consumed the 16-group holdout and classified
+`R18G_C_HOLDOUT_REVEALS_CRITICAL_GROUP_QUALITY_DEFECT` after 6 of 8 accepted
+Likely hypotheses were human-rejected at Medium confidence. Stop the normal
+graduation path. Do not tune from the consumed holdout or start R19A. The only
+next step is `ARCHITECT_REVIEW_HOLDOUT_DEFECT`; any later independent validation
+after a correction requires a new holdout.
+
+## R18H policy-freeze overlay
+
+R18H is `R18H_CURRENT_GF5_PARTITION_POLICY_FROZEN`.
+`GF5_PARTITION_POLICY_V1` freezes `(covered, likely_members, strong, -review,
+-group_count)` without a runtime change. Residual mixing debt remains OPEN;
+Review suppression, confidence, LLM, and XLSX-vNext remain out of scope. Once
+the R18H commit and working tree are verified, `NEXT =
+R18G_C_SEALED_HOLDOUT_VALIDATION`; do not tune after holdout reveal while
+retaining a holdout claim.
+
+## R18G-B2 targeted-evaluation overlay
+
+R18G-B2 is `R18G_B2_CURRENT_PARTITION_OBJECTIVE_SUPPORTED`. Both targeted
+Development cases prefer current over ADR: one exact human match and one
+materially smaller unsafe coarsening. Do not change runtime in B2. `NEXT =
+R18H_FREEZE_CURRENT_GF5_PARTITION_POLICY`; after that freeze is committed and
+verified, `NEXT LATER = R18G_C_SEALED_HOLDOUT_VALIDATION`. Confidence, LLM,
+XLSX-vNext, deployment, and GF11 remain downstream.
+
+## R18G-B1 targeted-partition overlay
+
+R18G-B1 is `R18G_B1_AWAITING_TARGETED_PARTITION_HUMAN_INPUT`. Give only the
+blinded targeted workbook to the same Senior and collect partitions for
+`R18G-D09438A953125080` and `R18G-FFF38D9F3046F48C`. Keep prior judgments
+fixed, keep the holdout sealed, and do not infer labels. Stop before R18G-B2;
+GF5, confidence, LLM advisory, and XLSX-vNext remain unchanged/not started.
+
+## R18G-B development-evaluation overlay
+
+R18G-B is `R18G_B_PARTITION_DETAIL_REQUIRED`. Do not change GF5. Obtain targeted
+partitions only for development groups `R18G-D09438A953125080` (five members)
+and `R18G-FFF38D9F3046F48C` (four members), then reassess. Do not reopen all 48
+reviews or reveal the sealed holdout. `NEXT = R18G_B1_TARGETED_PARTITION_COMPLETION`.
+
 ## R18G-A preparation overlay
 
 R18G-A is `R18G_AWAITING_GROUP_HUMAN_REVIEW`. The deterministic package contains
