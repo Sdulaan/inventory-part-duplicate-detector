@@ -1,5 +1,19 @@
 # Group-first inventory identity project SSOT
 
+## Acceptance provenance manifests verified
+
+`ACCEPTANCE_PROVENANCE_MANIFEST_VERIFIED`: deterministic acceptance and demo
+rehearsal tooling now persists schema-v1, secret-safe JSON provenance beside its
+artifacts: commit/branch/dirty state, exact safe-input bytes and canonical S0,
+the complete semantic request, configuration/reference/runtime fingerprints,
+separate S0-S10 fingerprints, semantic counts, and zero provider calls. The
+historical 158 request (`SAME_SITE_DUPLICATE`, `CONTRACT` + `UNIT_MEAS`, threshold
+75) now has a complete manifest and is fingerprint-distinct from the 164
+diagnostic (`[]`, threshold 60). Same input + same engine version + same
+request/configuration + same deterministic reference data → same semantic
+result. Production runtime, database schema, frontend, and identity behavior are
+unchanged. See `docs/ACCEPTANCE_PROVENANCE_MANIFEST.md`.
+
 ## Ambiguous global aliases reviewed without runtime change
 
 `AMBIGUOUS_ALIAS_REVIEW_RECOMMENDS_DISABLE_PENDING_VALIDATION`: repository

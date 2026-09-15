@@ -1,0 +1,258 @@
+{
+  "artifact_type": "historical_158_rehearsed_request_replay",
+  "canonical_serialization": "utf8-sorted-keys-compact-separators-v1",
+  "configuration": {
+    "cache": {
+      "embedding_model_version": "sklearn-hashing-domain-v1",
+      "key_namespace": "semantic-text-fingerprint-plus-model-version",
+      "representation": "float64-round-7-decimals-to-float32"
+    },
+    "discovery": {
+      "algorithm_version": "identity-discovery-v6-scan-independent-ordering",
+      "configuration": {
+        "character_retrieval": {
+          "activation_threshold": 2000,
+          "backend": "numpy-random-hyperplane-lsh",
+          "bits_per_table": 12,
+          "bucket_probe_cap_multiplier": 2,
+          "candidate_gather_multiplier": 4,
+          "candidate_pool_k": 320,
+          "candidate_retention_order": "bit-agreement-descending-retrieval-order-key-ascending",
+          "exact_rerank_version": "exact-cosine-retrieval-order-key-tie-v2",
+          "final_top_k": 5,
+          "lsh_contract_version": "fixed-seed-cosine-lsh-exact-rerank-v2",
+          "numpy_version": "2.4.6",
+          "probe_radius": 2,
+          "random_generator": "numpy-PCG64",
+          "scikit_learn_version": "1.7.0",
+          "seed": 1101,
+          "selected_strategy": "FIXED_SEED_LSH_EXACT_RERANK",
+          "stable_insertion_order": "retrieval-order-key-ascending",
+          "strategy_contract_version": "character-retrieval-strategy-v2",
+          "table_count": 8,
+          "vector_representation_version": "sklearn-hashing-domain-v1-384-char-wb-3-5"
+        },
+        "configuration_version": "identity-discovery-config-v6",
+        "eligible_record_count": 5327,
+        "hybrid_enabled": true,
+        "hybrid_family_cap": 25,
+        "hybrid_final_top_k": 10,
+        "hybrid_global_cap": 500,
+        "hybrid_lexical_top_k": 5,
+        "hybrid_tier_caps": {
+          "TIER_A": 250,
+          "TIER_B": 200,
+          "TIER_C": 50
+        },
+        "hybrid_vector_top_k": 5,
+        "lexical_retrieval": {
+          "canonical_ordering": "retrieval-order-key-ascending-before-candidate-generation",
+          "canonical_tie_rule": "full-score-desc-retrieval-order-key-asc",
+          "eligible_record_threshold": 25000,
+          "exact_rerank_version": "v4-full-cosine-score-desc-retrieval-order-key-asc",
+          "final_top_k": 5,
+          "large_strategy": "BOUNDED_RARITY_AWARE_V1_WITH_FIXED_SECOND_PASS",
+          "post_second_pass_failure_policy": "LEXICAL_CANDIDATE_POOL_INSUFFICIENT",
+          "primary": {
+            "batch_size": 64,
+            "candidate_pool": 80,
+            "feature_limit": 32,
+            "formulation": "R2_VISIT_BUDGET",
+            "ranking_policy": "P1_RAREST",
+            "visit_budget": 4096
+          },
+          "proxy_definition": "visited-authoritative-tfidf-partial-dot-support",
+          "second_pass": {
+            "applies_to": "PRIMARY_INSUFFICIENT_ANCHORS_ONLY",
+            "batch_size": 64,
+            "candidate_pool": 80,
+            "feature_limit": 32,
+            "formulation": "R2_VISIT_BUDGET",
+            "ranking_policy": "P1_RAREST",
+            "visit_budget": 16384
+          },
+          "small_strategy": "EXACT_INDEXED_V4",
+          "strategy_version": "production-lexical-strategy-v1",
+          "v4_contract_fingerprint": "b5cb1e91f75255c96015dc249fb342c61ba0f87fe384e72ecfaefa64d1ccd07e"
+        },
+        "local_embedding_enabled": true,
+        "local_embedding_model": "sklearn-hashing-domain-v1",
+        "neighborhood_max_members": 20,
+        "scan_mode": "DISCOVERY",
+        "selected_fields": [
+          "CONTRACT",
+          "UNIT_MEAS"
+        ],
+        "selected_lexical_strategy": "EXACT_INDEXED_V4",
+        "standard_pair_cap": 20000
+      },
+      "configuration_version": "identity-discovery-config-v6",
+      "normalization_version": "hybrid-nlp-v1"
+    },
+    "evidence": {
+      "algorithm_version": "independent-identity-evidence-v1",
+      "configuration_sha256": "ce5c7a86a7dcc52ca31f902437fe8fe2280980661dd5d22f25e6f70c597be722"
+    },
+    "orchestration": {
+      "mode": "group_first_primary",
+      "policy_sha256": "6148199314fdf443b142aa70cd5351e23572c0bc6d94950b84889fec404d2c9c",
+      "policy_version": "group-first-orchestration-policy-v2",
+      "primary_identity_pipeline": "GROUP_FIRST_GF1_GF6",
+      "visible_projection_contract": "G2_V2"
+    },
+    "projection": {
+      "adapter_algorithm_version": "g2-v2-resolution-adapter-v1",
+      "adapter_configuration_sha256": "e63cfa40acc8080499d0bde8e16619e599f77f4820a6b169cc58ceaa5d8afc80",
+      "snapshot_contract_version": 2
+    },
+    "resolution": {
+      "algorithm_version": "constrained-identity-resolver-v2-stable-ordering",
+      "configuration": {
+        "complete_pairwise_member_limit": 8,
+        "configuration_version": "constrained-identity-resolver-config-v1",
+        "max_resolution_members": 20,
+        "max_targeted_checks_per_work_unit": 40
+      },
+      "configuration_sha256": "2584f95836d0f37d73dea545d64eab6b9cfbefc67cfa29d5dd0a01b5fda92448",
+      "configuration_version": "constrained-identity-resolver-config-v1"
+    },
+    "sha256": "ad24e3feaeda49de7ff8f8c8dfe6f21a368027b8871b2ac5863d45aa4a333d65"
+  },
+  "counts": {
+    "candidate_groups": 158,
+    "candidate_partitions_explored": 171251,
+    "candidate_proposals": 20492,
+    "conflicts": 27,
+    "deferred": 40,
+    "member_rows": 345,
+    "provider_calls": 0,
+    "records": 5327,
+    "review_evidence_groups": 113,
+    "stronger_evidence_groups": 45,
+    "targeted_requests": 271,
+    "unassigned": 4982
+  },
+  "generated_at_utc": "2026-09-15T09:13:50.821232+00:00",
+  "input": {
+    "byte_hash_status": "AVAILABLE",
+    "byte_sha256": "8740777d660a16661585e6141de7be3309219b7758dd12486f3abb1a05b1110b",
+    "byte_size": 3265800,
+    "canonical_s0_sha256": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257",
+    "header_sha256": "fd8156ded0bf9b1748646670c1c11255d8257a66becdb2ca5debbdcbd5ce320a",
+    "logical_label": "List_20260709_093045.csv",
+    "row_count": 5327,
+    "row_order_sha256": "fbeecb41d800385e34944f32f1f2ab2f133bd3c5aa90bcf5c410a7c3a5fd6697"
+  },
+  "provider_calls": 0,
+  "reference_data": {
+    "references": [
+      {
+        "name": "semantic_aliases",
+        "reference_version": "semantic-aliases-v1",
+        "schema_version": 1,
+        "sha256": "0484679a78e61b2f3564c40ca7ef7f7d2b69c1a98e24d24ecdedf65eccdc4367"
+      }
+    ],
+    "sha256": "73d81c465d24e1c8c84eea21db5c667e07960f69fde5d827d195fcf5884f4075"
+  },
+  "repository": {
+    "branch": "demo-authoritative-integration",
+    "commit": "448b851230b41723736331ea6a1e10934218e5d7",
+    "dirty": true
+  },
+  "request": {
+    "candidate_mode": "group_first_primary",
+    "feature_flags": {
+      "hybrid_retrieval_enabled": true,
+      "local_embedding_enabled": true
+    },
+    "scan_mode": "SAME_SITE_DUPLICATE",
+    "selected_fields": [
+      "CONTRACT",
+      "UNIT_MEAS"
+    ],
+    "semantic_options": {
+      "identity_discovery_mode": "DISCOVERY",
+      "visible_projection_contract": "G2_V2"
+    },
+    "sensitive_mode": false,
+    "sha256": "07a25571a21412c03d9fe694383b85ba7e2bfdd9d1879fcfeb3affeee95abadc",
+    "site_scope": "SAME_SITE",
+    "source_type": "CSV",
+    "threshold": 75.0
+  },
+  "runtime": {
+    "database_engine": "SQLite",
+    "database_version": "3.45.1",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9",
+    "semantic_dependencies": {
+      "SQLAlchemy": "2.0.41",
+      "numpy": "2.4.6",
+      "openpyxl": "3.1.5",
+      "pandas": "2.3.0",
+      "rapidfuzz": "3.13.0",
+      "scikit-learn": "1.7.0",
+      "scipy": "1.17.1"
+    },
+    "sha256": "32dbd7f8448cb11046dcc6bdd6a083a6fbd6d1b46eeed75368fb4cb3a104ca38"
+  },
+  "schema_version": 1,
+  "semantic_fingerprints": {
+    "S0": {
+      "count": 5327,
+      "name": "S0_CANONICAL_RECORD_SNAPSHOTS",
+      "sha256": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257"
+    },
+    "S1": {
+      "count": 20492,
+      "name": "S1_CANDIDATE_DISCOVERY_PROPOSALS",
+      "sha256": "4f2df0eb716ec0d9b06ec65c33cfb6cca1673ccce84559dfe56fbc9f42cdd2fd"
+    },
+    "S10": {
+      "count": 158,
+      "name": "S10_G2_V2_GROUP_PROJECTION",
+      "sha256": "0a8a5ba1c699d9f810d1c555509a462d04530b113f8564c8c9d9b5edd92e341b"
+    },
+    "S2": {
+      "count": 20492,
+      "name": "S2_DETERMINISTIC_EVIDENCE_INPUTS",
+      "sha256": "726f1206ede9210c10fdcc797c594523887a41156453cb981c82315a0d9ad38f"
+    },
+    "S3": {
+      "count": 20492,
+      "name": "S3_GF4_CLASSIFIED_EVIDENCE_EDGES",
+      "sha256": "682473a17a9edcbf66e940194a6287852a057f32655863948459bb12fc975468"
+    },
+    "S4": {
+      "count": 1313,
+      "name": "S4_GF5_ELIGIBLE_NEIGHBORHOODS",
+      "sha256": "7fe6c3e5138cf3274ccc8bcf786f6accd1528af3e9690f06d20230a6b5c97259"
+    },
+    "S5": {
+      "count": 1,
+      "name": "S5_GF5_OBJECTIVE_INPUTS",
+      "sha256": "268e78c48b662ff301dde75d68a4792e994350b41f2dc4c9abc2aff0cbbdb6b9"
+    },
+    "S6": {
+      "count": 158,
+      "name": "S6_GF5_SELECTED_GROUPS",
+      "sha256": "a84dbe3aca0391c688ab79ea0723bc95b168d70ef0741a1c09259f43fe7c006a"
+    },
+    "S7": {
+      "count": 27,
+      "name": "S7_GF5_CONFLICTS",
+      "sha256": "aeecfb4f30e9a00819fc2a6b5f414e55768032730d2a67805f646d3f7c0af860"
+    },
+    "S8": {
+      "count": 40,
+      "name": "S8_GF5_DEFERRED",
+      "sha256": "6de165cafcdd79dfb469e5060b604ab19d84fb0b31e590edcbeb40c71b9ae2b0"
+    },
+    "S9": {
+      "count": 4982,
+      "name": "S9_GF5_UNASSIGNED",
+      "sha256": "cdbab036c0dad18e918c56edb0a976d24317a74d3240cfe82a0ea99e7e2742c6"
+    }
+  }
+}

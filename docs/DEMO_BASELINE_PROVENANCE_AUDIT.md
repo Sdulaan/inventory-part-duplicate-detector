@@ -171,8 +171,10 @@ Allowed claim:
 Do not claim that 158 is invariant across request parameters or that the
 164 diagnostic is equivalent to the historical request.
 
-Smallest next action: persist a compact request/input/configuration provenance
-manifest beside future real-data acceptance artifacts so selected fields,
-threshold, scan mode, input SHA-256, commit, reference fingerprint, and runtime
-versions cannot be omitted or conflated again. This is a diagnostics-artifact
+Completed next action: schema-v1 acceptance provenance manifests now persist the
+safe input, request, configuration, commit/dirty state, reference and runtime
+fingerprints, separate S0-S10 hashes, counts, and zero-provider result beside
+acceptance artifacts. The historical 158 replay manifest is
+`artifacts/determinism_cache_and_gf5_ordering/historical_158.acceptance_provenance.json`.
+See `docs/ACCEPTANCE_PROVENANCE_MANIFEST.md`. This is a diagnostics-artifact
 improvement, not a runtime-behavior change.

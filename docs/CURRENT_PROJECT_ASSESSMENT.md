@@ -1,5 +1,18 @@
 # Current project assessment
 
+## Acceptance provenance is machine-readable
+
+`ACCEPTANCE_PROVENANCE_MANIFEST_VERIFIED`: acceptance tooling now fails its
+provenance gate unless it can persist safe input/request/configuration,
+commit/dirty state, semantic reference/runtime versions, separate S0-S10 hashes,
+counts, and zero provider calls. The generated 158-group manifest records the
+rehearsed `SAME_SITE_DUPLICATE`, `CONTRACT` + `UNIT_MEAS`, threshold-75 request
+and is fingerprint-distinct from the no-selected-fields, threshold-60
+164-group diagnostic. Same input + same engine version + same
+request/configuration + same deterministic reference data → same semantic
+result. No production path, schema, frontend, provider, or identity semantic was
+changed. See `ACCEPTANCE_PROVENANCE_MANIFEST.md`.
+
 ## Ambiguous alias portability review complete
 
 `AMBIGUOUS_ALIAS_REVIEW_RECOMMENDS_DISABLE_PENDING_VALIDATION`: neither
