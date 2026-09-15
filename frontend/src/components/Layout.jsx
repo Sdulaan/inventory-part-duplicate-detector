@@ -12,7 +12,10 @@ export default function Layout() {
           <NavLink to="/data-security">Data Security</NavLink>
           <NavLink to="/future-ifs">Future IFS Integration</NavLink>
         </nav>
-        <div className="notice">AI-assisted candidate detection.<br />Human review is required.</div>
+        <div className="notice">
+          <span className="sebsa-mark">SEBSA</span>
+          AI-assisted candidate detection.<br />Human review is required.
+        </div>
       </aside>
       <main><Outlet /></main>
     </div>
