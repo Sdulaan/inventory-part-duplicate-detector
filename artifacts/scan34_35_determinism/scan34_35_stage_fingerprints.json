@@ -1,0 +1,104 @@
+{
+  "canonical_record_snapshots_equal": true,
+  "groups": {
+    "common": 149,
+    "common_status_changed": 0,
+    "scan_34_only": 9,
+    "scan_35_only": 8
+  },
+  "input_bytes_equal": "NOT_PERSISTED_NOT_DIRECTLY_VERIFIABLE",
+  "input_row_order_equal": true,
+  "input_rows_equal": true,
+  "scan_a": 34,
+  "scan_b": 35,
+  "stages": [
+    {
+      "equal": true,
+      "scan_34_count": 5327,
+      "scan_34_hash": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257",
+      "scan_35_count": 5327,
+      "scan_35_hash": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257",
+      "stage": "S0_CANONICAL_RECORD_SNAPSHOTS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 20492,
+      "scan_34_hash": "b952fc9a78ec1c1fe0d9e2e540aa85399ab69a7809b0b61c8bb6f6e851fe20a1",
+      "scan_35_count": 20492,
+      "scan_35_hash": "36fcf0bfeb4cf249880d49ea1c9f45d7d3b699100f535726478511a5a99320ec",
+      "stage": "S1_CANDIDATE_DISCOVERY_PROPOSALS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 20492,
+      "scan_34_hash": "d0b8f33c6ef33cffea2e2ead2355083129f5bcc1b9c08c11f84c4891fc2b472e",
+      "scan_35_count": 20492,
+      "scan_35_hash": "5db2abbe0df745f4e78b9ee886b1a5d45c4c66c71493240ec0bf808b42448c3c",
+      "stage": "S2_DETERMINISTIC_EVIDENCE_INPUTS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 20492,
+      "scan_34_hash": "44664caf274a809d540948802bdc7473c70eb0ca7f94ed0155c69ab236a7f4e2",
+      "scan_35_count": 20492,
+      "scan_35_hash": "f0dc9893218ba4586be4a71ac1462028c03fd41cb4a100badef582d7e7526dbd",
+      "stage": "S3_GF4_CLASSIFIED_EVIDENCE_EDGES"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 1289,
+      "scan_34_hash": "975ac9857eebcf36a08f09c8410cf17cebc639533575535d9bcc69541395bb38",
+      "scan_35_count": 1284,
+      "scan_35_hash": "ccdb730f7d0407af53b30985dd4f3b0a1c7e72be335e24721c47555bf123ad45",
+      "stage": "S4_GF5_ELIGIBLE_NEIGHBORHOODS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 1,
+      "scan_34_hash": "2216283102772143e55177da7bd106df3dcac6e06efefe4782853a18a7bf271b",
+      "scan_35_count": 1,
+      "scan_35_hash": "35a9a39804a4e11cd0f600573669855b25c62494d3c8620008c1d5ba2123340c",
+      "stage": "S5_GF5_OBJECTIVE_INPUTS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 158,
+      "scan_34_hash": "f8d9be56bedcd82b078cbdeb7816f1a3daa5a16e2461d17042d7852f96d85813",
+      "scan_35_count": 157,
+      "scan_35_hash": "bdcbc3fb0a14aad3dc53bf2141871ae1e1e8c49d4cd91aa26bc937d6aa9db2bf",
+      "stage": "S6_GF5_SELECTED_GROUPS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 28,
+      "scan_34_hash": "c261db0b8140fde4f62578dc41b3c714fdab2523ba9be16a6bbe003eb8f1738e",
+      "scan_35_count": 27,
+      "scan_35_hash": "f0db4779d0850ae44b84759902f29ca2c25a3ef69747d3a792551245817a11fc",
+      "stage": "S7_GF5_CONFLICTS"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 40,
+      "scan_34_hash": "8d9352f2d0676ef6ad194040b2f9e1e35318728bdd620bb3f711cbb56fb998d0",
+      "scan_35_count": 40,
+      "scan_35_hash": "11e670c2c33888d1046ddb9c82d595e14d819869b6190e6489fd0cf2530ff9d6",
+      "stage": "S8_GF5_DEFERRED"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 4986,
+      "scan_34_hash": "67c30f8506c0e6a4109473e80a65578f7cae80aecb50fa71afa9aede1bba8b41",
+      "scan_35_count": 4988,
+      "scan_35_hash": "475d14d60a4eab5fcb0706bddeb8345515dddca802b482c824ffc5c0b9a56239",
+      "stage": "S9_GF5_UNASSIGNED"
+    },
+    {
+      "equal": false,
+      "scan_34_count": 158,
+      "scan_34_hash": "771ccfa9f600c1437ac4fb37592233b3fad16bdf863abad56efc797cc077448e",
+      "scan_35_count": 157,
+      "scan_35_hash": "41d3ebae6bbe07c18a5bfcec4441649fbb5a69fc447926893b25dea946f25d4c",
+      "stage": "S10_G2_V2_GROUP_PROJECTION"
+    }
+  ]
+}
