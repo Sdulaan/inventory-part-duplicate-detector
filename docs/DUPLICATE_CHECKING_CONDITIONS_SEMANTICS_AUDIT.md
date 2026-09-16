@@ -1,5 +1,13 @@
 # Duplicate Checking Conditions Semantics Audit
 
+> **Subsequent semantic correction:** This audit remains an accurate account of
+> the old code at its recorded commit. Clarified product intent subsequently
+> changed selected `CONTRACT`: it is now a request-scoped hard final-group
+> equality constraint, while unselected `CONTRACT` remains cross-site eligible.
+> The prior 158-group result and `CG-000010` trace are retained as the
+> `PRE_SITE_HARD_CONSTRAINT_BASELINE`, not the current expected behavior. See
+> `REQUEST_SCOPED_SITE_CONSTRAINT.md` for implementation and acceptance proof.
+
 ## 1. Executive answer
 
 **Primary classification:**

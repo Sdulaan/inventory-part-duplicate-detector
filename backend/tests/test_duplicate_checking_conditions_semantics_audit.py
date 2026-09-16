@@ -158,21 +158,24 @@ def test_four_case_duplicate_condition_semantics_are_observed_without_providers(
         "contract_uom": _run_case(db, ["CONTRACT", "UNIT_MEAS"]),
     }
     all_pairs = sorted("".join(pair) for pair in combinations("ABCD", 2))
-    assert all(value["proposal_pairs"] == all_pairs for value in cases.values())
-    assert all(value["groups"] == [] for value in cases.values())
-    assert all(
-        value["unassigned"] == ["A", "B", "C", "D"]
-        for value in cases.values()
-    )
+    assert cases["none"]["proposal_pairs"] == all_pairs
+    assert cases["uom"]["proposal_pairs"] == all_pairs
+    assert cases["contract"]["proposal_pairs"] == ["AB", "AD", "BD"]
+    assert cases["contract_uom"]["proposal_pairs"] == ["AB", "AD", "BD"]
+    assert cases["none"]["groups"] == cases["uom"]["groups"] == []
+    assert cases["contract"]["groups"] == [["A", "B", "D"]]
+    assert cases["contract_uom"]["groups"] == [["A", "B", "D"]]
+    assert cases["none"]["unassigned"] == cases["uom"]["unassigned"] == [
+        "A", "B", "C", "D",
+    ]
+    assert cases["contract"]["unassigned"] == ["C"]
+    assert cases["contract_uom"]["unassigned"] == ["C"]
     expected_scores = {
         "none": dict.fromkeys(all_pairs, 85.71),
         "contract": {
             "AB": 95.71,
-            "AC": 75.71,
             "AD": 95.71,
-            "BC": 75.71,
             "BD": 95.71,
-            "CD": 75.71,
         },
         "uom": {
             "AB": 95.71,
@@ -184,11 +187,8 @@ def test_four_case_duplicate_condition_semantics_are_observed_without_providers(
         },
         "contract_uom": {
             "AB": 95.71,
-            "AC": 85.71,
             "AD": 85.71,
-            "BC": 85.71,
             "BD": 85.71,
-            "CD": 75.71,
         },
     }
     assert {

@@ -396,6 +396,9 @@ def test_ps24_only_bounded_xlsx_export_production_change():
             "backend/app/services/lexical_retrieval.py",
             "backend/app/resolution/contracts.py",
             "backend/app/resolution/resolver.py",
+            "backend/app/resolution/request_constraints.py",
+            "backend/app/resolution/validation.py",
+            "backend/app/services/identity_resolution_service.py",
         }
     assert set(production_changes) <= allowed
     if production_changes:
@@ -413,6 +416,7 @@ def test_ps24_only_bounded_xlsx_export_production_change():
             or "cross_site_identity_discovery" in diff
                 or "assess_lexical_trust" in diff
                 or "retrieval_order_key" in diff
+                or "request_scoped_group_constraints" in diff
             )
         forbidden_names = ["generate_candidate_pairs"]
         if "assess_lexical_trust" not in diff:

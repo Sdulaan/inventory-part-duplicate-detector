@@ -1,5 +1,19 @@
 # Group-first inventory identity project SSOT
 
+## Selected Site is a request-scoped group constraint
+
+`REQUEST_SCOPED_SITE_CONSTRAINT_VERIFIED`: selecting Site (`CONTRACT`) now
+prunes incompatible hybrid relationships and requires normalized Site equality
+at the GF5 group-acceptance boundary. Unselecting Site removes that restriction;
+the 5,327-record control produced 18 cross-site groups, proving cross-site
+identity capability remains available. The selected-Site acceptance produced
+208 advisory groups, zero cross-site groups, zero persistent constraints, and
+zero provider calls; its five-sheet XLSX also passed the single-Site invariant.
+GF4 ontology, the GF5 objective, review authority, and `UNIT_MEAS` semantics are
+unchanged. The former 158-group result is retained as the historical
+`PRE_SITE_HARD_CONSTRAINT_BASELINE`. See
+`docs/REQUEST_SCOPED_SITE_CONSTRAINT.md`.
+
 ## Acceptance provenance manifests verified
 
 `ACCEPTANCE_PROVENANCE_MANIFEST_VERIFIED`: deterministic acceptance and demo
