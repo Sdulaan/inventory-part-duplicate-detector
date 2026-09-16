@@ -47,6 +47,7 @@ from app.engine.normalizer import (
     normalize_part_no_with_dictionary,
 )
 from app.engine.uom_relationship import UomRelationship, classify_uom_relationship
+from app.resolution.request_constraints import contract_pair_is_compatible
 from app.engine.variant_extractor import find_critical_mismatches
 
 
@@ -366,6 +367,7 @@ def _allowed_pair(
     left: dict, right: dict, scan_mode: str,
     left_features: CandidateEvaluationFeatures | None = None,
     right_features: CandidateEvaluationFeatures | None = None,
+    require_contract_equality: bool = False,
 ) -> bool:
     if (left_features is None) != (right_features is None):
         raise ValueError("allowed-pair evaluation requires both feature bundles or neither")
@@ -373,6 +375,8 @@ def _allowed_pair(
         left_features = build_candidate_evaluation_features(left)
         right_features = build_candidate_evaluation_features(right)
     if record_identity_key(left, left_features) == record_identity_key(right, right_features):
+        return False
+    if require_contract_equality and not contract_pair_is_compatible(left, right):
         return False
     left_part = left_features.normalized_part_no
     right_part = right_features.normalized_part_no
@@ -710,6 +714,7 @@ class HybridCandidateRetriever:
         excluded_pairs: set | None = None,
         evaluation_features: dict[str, CandidateEvaluationFeatures] | None = None,
         cross_site_identity_discovery: bool = False,
+        require_contract_equality: bool = False,
     ) -> HybridRetrievalResult:
         started = time.perf_counter()
         records = [row.to_dict() for _, row in df.reset_index(drop=True).iterrows()]
@@ -798,6 +803,7 @@ class HybridCandidateRetriever:
             if not _allowed_pair(
                 records[first], records[second], scan_mode,
                 features[first], features[second],
+                require_contract_equality,
             ):
                 return None
             if (

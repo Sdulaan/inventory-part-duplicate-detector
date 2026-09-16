@@ -17,6 +17,7 @@ import {
   scanRequestError,
   validationContextKey,
 } from '../utils/productJourneyUi'
+import { duplicateConditionHelp } from '../utils/duplicateConditionSemantics'
 
 const FALLBACK_FIELDS = [
   { field: 'CONTRACT', display: 'Site' },
@@ -255,10 +256,12 @@ export default function NewScan() {
             <select value={partType} disabled={!!busy} onChange={event => changePartType(event.target.value)}>
               {PART_TYPE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
             </select>
+            <small>Site is enforced only when selected below. When unselected, cross-site identity suggestions remain eligible for review.</small>
           </label>
           <label>Parts export (CSV or XLSX)<input type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={!!busy} onChange={event => selectFile(event.target.files[0] || null)} /></label>
           <div><label>Review strictness <b>{threshold}</b></label><input type="range" min={MIN_THRESHOLD} max={MAX_THRESHOLD} value={threshold} disabled={!!busy} onChange={e => setThreshold(+e.target.value)} /><small>Move right to show only stronger matches. Move left to discover more possible matches.</small></div>
         </section>
+        <section className="panel"><h2>Duplicate-checking conditions</h2><div className="checks">{fields.map(f => <label key={f.field}><input type="checkbox" checked={selected.includes(f.field)} disabled={!!busy} onChange={() => setSelected(s => s.includes(f.field) ? s.filter(x => x !== f.field) : [...s, f.field])} /><span>{f.display}<small>{duplicateConditionHelp(f.field)}</small><small>{f.field}</small></span></label>)}</div></section>
         <section className="panel"><h2>Duplicate-checking conditions</h2><div className="checks">{checklistFields.map(f => <label key={f.field}><input type="checkbox" checked={selected.includes(f.field)} disabled={!!busy} onChange={() => setSelected(s => s.includes(f.field) ? s.filter(x => x !== f.field) : [...s, f.field])} /><span>{f.display}<small>{f.field}</small></span></label>)}</div></section>
       </div>
       <div className="actions"><button type="button" className="secondary" onClick={validate} disabled={!!busy}>{busy === 'validate' ? 'Validating…' : validationIsCurrent ? 'Validate again' : 'Validate CSV'}</button><button type="button" onClick={run} disabled={!canRun}>{busy === 'scan' ? 'Processing inventory…' : 'Run scan'}</button></div>

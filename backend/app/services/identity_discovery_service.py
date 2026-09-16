@@ -32,8 +32,8 @@ from app.services.lexical_retrieval import (
 )
 
 
-DISCOVERY_ALGORITHM_VERSION = "identity-discovery-v6-scan-independent-ordering"
-DISCOVERY_CONFIGURATION_VERSION = "identity-discovery-config-v6"
+DISCOVERY_ALGORITHM_VERSION = "identity-discovery-v7-request-scoped-site"
+DISCOVERY_CONFIGURATION_VERSION = "identity-discovery-config-v7"
 NEIGHBOR_PROPOSAL_VERSION = "neighbor-proposal-v2"
 _MAX_WARNING_CODES = 20
 _MAX_CONTEXT_ITEMS = 20

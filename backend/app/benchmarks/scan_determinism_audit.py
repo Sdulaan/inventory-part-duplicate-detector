@@ -357,7 +357,15 @@ def _source_rows(member_key: tuple[str, ...]) -> str:
 
 
 def run_audit(
-    database_path: Path, scan_a: int, scan_b: int, output_directory: Path
+    database_path: Path,
+    scan_a: int,
+    scan_b: int,
+    output_directory: Path,
+    *,
+    input_path: Path | None = None,
+    input_label: str = "INPUT_NOT_RECORDED",
+    repository_root: Path | None = None,
+    sensitive_mode: bool | None = None,
 ) -> dict[str, Any]:
     connection = sqlite3.connect(f"file:{database_path.resolve()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
@@ -478,6 +486,31 @@ def run_audit(
             writer.writeheader()
             writer.writerow({"scan_id": scan_a, **{item.stage: item.fingerprint for item in left_stages}})
             writer.writerow({"scan_id": scan_b, **{item.stage: item.fingerprint for item in right_stages}})
+
+        # Acceptance provenance is deliberately an artifact-side concern.  A
+        # write or validation failure propagates and fails this diagnostic gate;
+        # ordinary production scans never import or invoke the writer.
+        from app.benchmarks.acceptance_provenance import (
+            build_scan_manifest,
+            write_manifest,
+        )
+
+        repo = repository_root or Path(__file__).resolve().parents[3]
+        for audit in (left, right):
+            manifest = build_scan_manifest(
+                connection=connection,
+                audit=audit,
+                repository_root=repo,
+                artifact_type="scan_determinism_acceptance",
+                input_path=input_path,
+                input_label=input_label,
+                sensitive_mode=sensitive_mode,
+            )
+            write_manifest(
+                output_directory
+                / f"scan_{audit.scan_id}.acceptance_provenance.json",
+                manifest,
+            )
         return summary
     finally:
         connection.close()
@@ -489,8 +522,29 @@ def main() -> int:
     parser.add_argument("--scan-a", type=int, default=34)
     parser.add_argument("--scan-b", type=int, default=35)
     parser.add_argument("--output-directory", type=Path, required=True)
+    parser.add_argument("--input", type=Path)
+    parser.add_argument("--input-label", default="INPUT_NOT_RECORDED")
+    parser.add_argument("--repository-root", type=Path)
+    parser.add_argument(
+        "--sensitive-mode", choices=("true", "false", "not-recorded"),
+        default="not-recorded",
+    )
     args = parser.parse_args()
-    result = run_audit(args.database, args.scan_a, args.scan_b, args.output_directory)
+    sensitive_mode = {
+        "true": True,
+        "false": False,
+        "not-recorded": None,
+    }[args.sensitive_mode]
+    result = run_audit(
+        args.database,
+        args.scan_a,
+        args.scan_b,
+        args.output_directory,
+        input_path=args.input,
+        input_label=args.input_label,
+        repository_root=args.repository_root,
+        sensitive_mode=sensitive_mode,
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 

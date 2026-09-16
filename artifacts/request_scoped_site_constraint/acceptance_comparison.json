@@ -1,0 +1,87 @@
+{
+  "assertions": {
+    "no_persistent_constraint_leakage": "PASS",
+    "no_provider_calls": "PASS",
+    "selected_site_is_final_group_equality": "PASS",
+    "selected_site_xlsx_single_site_groups": "PASS",
+    "unselected_site_preserves_cross_site_eligibility": "PASS"
+  },
+  "runs": {
+    "site_selected": {
+      "cross_site_groups": 0,
+      "elapsed_seconds": 661.401,
+      "evidence_edges": 20381,
+      "persistent_constraint_rows": 0,
+      "projection_groups": 208,
+      "projection_members": 436,
+      "proposals": 20381,
+      "provider_calls": 0,
+      "records": 5327,
+      "resolution_groups": 208,
+      "scan_id": 1,
+      "selected_fields": [
+        "CONTRACT",
+        "UNIT_MEAS"
+      ],
+      "stage_fingerprints": {
+        "S0_CANONICAL_RECORD_SNAPSHOTS": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257",
+        "S10_G2_V2_GROUP_PROJECTION": "b2f142b5492111be26cba2e2c88782c1a86997f8372eaded4ceb654ff4b7cb99",
+        "S1_CANDIDATE_DISCOVERY_PROPOSALS": "5817520418c6b932da947f7bf5fd607c0855223d3c0058c7ac0d87775a32daf5",
+        "S2_DETERMINISTIC_EVIDENCE_INPUTS": "08917c1b7849b33bee0600f71cffb66aeaaddd3532158cc7abeeb989aa120253",
+        "S3_GF4_CLASSIFIED_EVIDENCE_EDGES": "20d2536d8d4805c50db3d759dd97ef9c1e1af9ce08b8e5ca6d60e9cbeb36c7c4",
+        "S4_GF5_ELIGIBLE_NEIGHBORHOODS": "cad01b5daf451934f7e4320c36bf690378749eb5bbf80c5bbc1f705ae50daf89",
+        "S5_GF5_OBJECTIVE_INPUTS": "f36e2632387676155d67a30c912ee7a02166d448bb6d8da22413d25d6b8a8a29",
+        "S6_GF5_SELECTED_GROUPS": "0e4a0c606e5603209addf572e8f0c3ad94d8eadd05067ebd322c05d9c8a357ee",
+        "S7_GF5_CONFLICTS": "2a8bd61afca15d05a73acf1d2769681508a90b41949db27d22dc4c84dd397a24",
+        "S8_GF5_DEFERRED": "517dd2059ae07be418598a5c1adb49acfcf96f2ffab275a4371afe8c6e097866",
+        "S9_GF5_UNASSIGNED": "111bbe5509778c6ce4906b3a812bf42aa6b7d95443cfd49ee7d7480c6ab32e80"
+      }
+    },
+    "site_unselected": {
+      "cross_site_groups": 18,
+      "elapsed_seconds": 229.851,
+      "evidence_edges": 20492,
+      "persistent_constraint_rows": 0,
+      "projection_groups": 42,
+      "projection_members": 94,
+      "proposals": 20492,
+      "provider_calls": 0,
+      "records": 5327,
+      "resolution_groups": 42,
+      "scan_id": 2,
+      "selected_fields": [
+        "UNIT_MEAS"
+      ],
+      "stage_fingerprints": {
+        "S0_CANONICAL_RECORD_SNAPSHOTS": "8107a36194f3bab4209a1f714fc7412a76288b11b2a7b93d536a9c20b55d6257",
+        "S10_G2_V2_GROUP_PROJECTION": "86cbf5e985cd43602448ab6d45eaf48a9cfb3a306f1048b8f91056827f10358e",
+        "S1_CANDIDATE_DISCOVERY_PROPOSALS": "63c23be9621968df23211fb394ed1d99372c9d228be450de3971747347e2fe2b",
+        "S2_DETERMINISTIC_EVIDENCE_INPUTS": "9a2eba54a199bd9bd4120c4a11c67da81b52908071ecd3cd3f0eb77e74c15977",
+        "S3_GF4_CLASSIFIED_EVIDENCE_EDGES": "ea6109f31f2f7b4b6d44e1221aca1f098ad2f771d55d7f071ac0f02627d103c0",
+        "S4_GF5_ELIGIBLE_NEIGHBORHOODS": "40d33783e4dd2858be3f9feccfbec3696b72741f24f64ede2346a73346583ac0",
+        "S5_GF5_OBJECTIVE_INPUTS": "bc94943190845ea66a4d55be71fea05e9f65dbc9d7e841246e0d04daf7a89bfb",
+        "S6_GF5_SELECTED_GROUPS": "d220711677d508bdd3dffd8dc5aa5fe57587cdcb98904b47fb2d71dd1dd85da3",
+        "S7_GF5_CONFLICTS": "04eb7d438c1ec8b93b3c7ef131720e82334a4a0f93f145af7a6a787d5f42f962",
+        "S8_GF5_DEFERRED": "b20f91205e2a24b5ea53ddc553e70de749692ff81bc88220515e6b52d8a8767a",
+        "S9_GF5_UNASSIGNED": "a6b39f378f7d7daa681eca9e7e2b0b8e83ed7e9506edddc66dcf701d2944ac80"
+      }
+    },
+    "xlsx": {
+      "cross_site_groups": 0,
+      "detailed_data_rows": 436,
+      "sheet_names": [
+        "Overview",
+        "Review Groups",
+        "Group Index",
+        "Detailed Data",
+        "Technical Reference"
+      ],
+      "status": "PASS"
+    }
+  },
+  "source": {
+    "logical_label": "canonical-db-snapshot-scan-34",
+    "protected_workbook_accessed": false,
+    "records": 5327
+  }
+}

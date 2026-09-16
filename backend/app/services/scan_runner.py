@@ -105,6 +105,9 @@ class ScanRunner:
 
     def run(self, df: pd.DataFrame, scan_name: str, selected_fields: list[str], threshold: float, source_type="CSV", sensitive_mode: bool = True, scan_mode: str = "SAME_SITE_DUPLICATE", orchestration_mode: ScanOrchestrationMode | str | None = None, part_type: str = "INVENTORY", strict_custom_fields: list[dict] | None = None, custom_fields_used: list[dict] | None = None):
         scan_mode = normalize_scan_mode(scan_mode)
+        contract_equality_required = "CONTRACT" in {
+            str(field).strip().upper() for field in selected_fields
+        }
         mode = (
             orchestration_mode
             if orchestration_mode is not None
@@ -306,6 +309,7 @@ class ScanRunner:
                     cross_site_identity_discovery=(
                         policy.mode == ScanOrchestrationMode.GROUP_FIRST_PRIMARY
                     ),
+                    require_contract_equality=contract_equality_required,
                 )
                 added = 0
                 added_with_uom_difference = 0

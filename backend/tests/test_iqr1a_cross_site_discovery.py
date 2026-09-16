@@ -198,7 +198,7 @@ def test_part_family_can_anchor_cross_site_discovery_without_exact_description()
     assert "PART_NUMBER_FAMILY" in result.candidates[0].evidence.retrieval_sources
 
 
-def test_group_first_scan_routes_bicycle_proposals_through_evidence_and_resolver(
+def test_group_first_scan_routes_bicycles_when_site_constraint_is_unselected(
     db, monkeypatch
 ):
     def provider_called(*_args, **_kwargs):
@@ -213,7 +213,7 @@ def test_group_first_scan_routes_bicycle_proposals_through_evidence_and_resolver
     scan, _legacy_pair_count = ScanRunner(db, configuration()).run(
         rows,
         "IQR-1A Bicycle acceptance",
-        ["CONTRACT", "UNIT_MEAS"],
+        ["UNIT_MEAS"],
         75,
         scan_mode="SAME_SITE_DUPLICATE",
         orchestration_mode="group_first_primary",
@@ -228,6 +228,7 @@ def test_group_first_scan_routes_bicycle_proposals_through_evidence_and_resolver
 
     assert scan.scan_mode == "SAME_SITE_DUPLICATE"
     assert json.loads(discovery.configuration_json)["scan_mode"] == "DISCOVERY"
+    assert json.loads(discovery.configuration_json)["selected_fields"] == ["UNIT_MEAS"]
     assert discovery.proposal_count == len(proposals) == 21
     assert all(sites_by_id[item.record_id_1] != sites_by_id[item.record_id_2] for item in proposals)
     assert len(evidence) == 21
