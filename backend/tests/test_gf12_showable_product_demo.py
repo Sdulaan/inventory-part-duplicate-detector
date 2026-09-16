@@ -466,8 +466,11 @@ def test_demo24_only_bounded_xlsx_export_production_files_change():
             "backend/app/services/identity_discovery_service.py",
             "backend/app/services/identity_neighborhood_service.py",
             "backend/app/services/lexical_retrieval.py",
-            "backend/app/resolution/contracts.py",
-                "backend/app/resolution/resolver.py",
+                "backend/app/resolution/contracts.py",
+                    "backend/app/resolution/resolver.py",
+                    "backend/app/resolution/request_constraints.py",
+                    "backend/app/resolution/validation.py",
+                    "backend/app/services/identity_resolution_service.py",
                 "backend/app/benchmarks/scan_determinism_audit.py",
             }
     for document in (DEMO_CONTRACT, DEMO_RUNBOOK, PRESENTER_SCRIPT, ACCEPTANCE):

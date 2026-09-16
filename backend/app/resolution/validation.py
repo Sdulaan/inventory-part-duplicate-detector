@@ -32,6 +32,11 @@ from app.resolution.fingerprints import (
     identity_resolution_result_fingerprint,
     targeted_evidence_request_fingerprint,
 )
+from app.resolution.request_constraints import (
+    CONTRACT_GROUP_CONSTRAINT,
+    REQUEST_SCOPED_GROUP_CONSTRAINTS,
+    contract_group_is_compatible,
+)
 
 
 class IdentityResolutionValidationError(ValueError):
@@ -243,6 +248,14 @@ def validate_resolution_input(value: IdentityResolutionInput) -> None:
     _require(value.evidence_run_id > 0, "evidence_run_id must be positive")
     _nonblank(value.resolver_algorithm_version, "resolver_algorithm_version")
     validate_resolver_configuration(value.resolver_configuration)
+    _canonical_texts(
+        value.request_scoped_group_constraints,
+        "request_scoped_group_constraints",
+    )
+    _require(
+        set(value.request_scoped_group_constraints) <= REQUEST_SCOPED_GROUP_CONSTRAINTS,
+        "request-scoped group constraint is not allowlisted",
+    )
 
     record_ids = tuple(record.record_id for record in value.canonical_records)
     _canonical_ids(record_ids, "canonical_records")
@@ -392,6 +405,16 @@ def validate_group_hypothesis(
 
     lookup = _evidence_lookup(resolution_input, targeted_results)
     internal_pairs = tuple(combinations(group.member_record_ids, 2))
+    if CONTRACT_GROUP_CONSTRAINT in resolution_input.request_scoped_group_constraints:
+        records_by_id = {
+            record.record_id: record for record in resolution_input.canonical_records
+        }
+        _require(
+            contract_group_is_compatible(
+                records_by_id[item] for item in group.member_record_ids
+            ),
+            "accepted group violates request-scoped CONTRACT equality",
+        )
     internal = [lookup.get(pair) for pair in internal_pairs]
     human_cannot = {
         (item.record_id_1, item.record_id_2)
