@@ -97,17 +97,33 @@ def test_client_workbook_contract_semantics_merges_and_review(db, client):
         str(cell.value) for row in overview.iter_rows() for cell in row
         if cell.value is not None
     )
-    assert "Inventory Identity Review Candidate Report" in overview_text
+    assert "Inventory Duplicate Review Report" in overview_text
+    assert "Candidate groups generated for human review" in overview_text
+    assert "SCAN INFORMATION" in overview_text
+    assert "FINDINGS AT A GLANCE" in overview_text
+    assert "ADDITIONAL FINDINGS REQUIRING ATTENTION" in overview_text
+    assert "HUMAN REVIEW PROGRESS" in overview_text
+    assert "HOW TO USE THIS WORKBOOK" in overview_text
+    assert "REPORT DETAILS / TECHNICAL FOOTER" in overview_text
     assert WORKBOOK_NOTICE in overview_text
-    assert "Human decisions are authoritative" in overview_text
-    assert overview["A7"].value == "Number of records"
-    assert overview["D7"].value == snapshot.canonical_record_count
-    assert overview["C11"].value == "Total candidate groups"
-    assert overview["G11"].value == snapshot.group_count
-    assert overview["E23"].value == "Deferred / Unreviewed"
-    assert overview["E24"].value == 1
-    assert overview["A34"].value == "Scan ID"
-    assert overview["C34"].value == scan.id
+    assert overview["E6"].value == "Records Analysed"
+    assert overview["E7"].value == snapshot.canonical_record_count
+    assert overview["A15"].value == "Total Candidate Groups"
+    assert overview["A16"].value == snapshot.group_count
+    assert overview["A29"].value == "Reviewed"
+    assert overview["G29"].value == "1 of 1"
+    assert overview["A33"].value == "Deferred by Reviewer"
+    assert overview["G33"].value == 1
+    assert "Deferred / Unreviewed" not in overview_text
+    assert overview["A45"].value == "Scan ID"
+    assert overview["C45"].value == scan.id
+    occupied = set()
+    for merged in overview.merged_cells.ranges:
+        for row_number in range(merged.min_row, merged.max_row + 1):
+            for column_number in range(merged.min_col, merged.max_col + 1):
+                coordinate = (row_number, column_number)
+                assert coordinate not in occupied
+                occupied.add(coordinate)
 
     review = workbook["Review Groups"]
     index = workbook["Group Index"]
@@ -198,6 +214,14 @@ def test_unreviewed_candidate_requires_human_review_and_reason_is_concise(db, cl
     assert {row["Why Suggested"] for row in rows} == {
         concise_reason_for_group_status("POSSIBLE_DUPLICATE_GROUP_REVIEW")
     }
+    overview = workbook["Overview"]
+    assert overview["A29"].value == "Reviewed"
+    assert overview["G29"].value == "0 of 1"
+    assert overview["A30"].value == "Awaiting Review"
+    assert overview["G30"].value == 1
+    assert overview["A33"].value == "Deferred by Reviewer"
+    assert overview["G33"].value == 0
+    assert overview["E24"].value == "Deferred Families"
 
 
 def test_repeated_generation_is_semantically_and_visually_deterministic(db):
@@ -230,17 +254,17 @@ def test_overview_uses_persisted_scan_metadata_and_ui_ordered_condition_labels(d
     overview = _workbook(
         authority_selected_system_groups_to_xlsx(db, scan.id)
     )["Overview"]
-    assert overview["D5"].value == "2026-09-14T12:34:56"
-    assert overview["D6"].value == "Site, Inventory UOM"
-    assert overview["D7"].value == 5327
-    assert overview["D8"].value == "IFS APP Test"
+    assert overview["A7"].value == "14 Sep 2026, 12:34"
+    assert overview["A11"].value == "Site • Inventory UOM"
+    assert overview["E7"].value == 5327
+    assert overview["E11"].value == "IFS APP Test"
 
     scan.completed_at = None
     db.commit()
     overview = _workbook(
         authority_selected_system_groups_to_xlsx(db, scan.id)
     )["Overview"]
-    assert overview["D5"].value == "2026-09-14T08:00:00"
+    assert overview["A7"].value == "14 Sep 2026, 08:00"
 
     for selected_fields, expected in (
         (["UNIT_MEAS"], "Inventory UOM"),
@@ -252,8 +276,8 @@ def test_overview_uses_persisted_scan_metadata_and_ui_ordered_condition_labels(d
         overview = _workbook(
             authority_selected_system_groups_to_xlsx(db, scan.id)
         )["Overview"]
-        assert overview["D6"].value == expected
-        assert "Site" not in str(overview["D6"].value)
+        assert overview["A11"].value == expected
+        assert "Site" not in str(overview["A11"].value)
 
 
 def test_overview_findings_match_authoritative_projection_counts(db):
@@ -263,19 +287,24 @@ def test_overview_findings_match_authoritative_projection_counts(db):
         authority_selected_system_groups_to_xlsx(db, scan.id)
     )["Overview"]
     findings = {
-        overview.cell(row, 3).value: overview.cell(row, 7).value
-        for row in range(11, 18)
+        overview["A15"].value: overview["A16"].value,
+        overview["C15"].value: overview["C16"].value,
+        overview["F15"].value: overview["F16"].value,
+        overview["A19"].value: overview["A20"].value,
+        overview["E19"].value: overview["E20"].value,
+        overview["A24"].value: overview["A25"].value,
+        overview["E24"].value: overview["E25"].value,
     }
     assert findings == {
-        "Total candidate groups": snapshot.group_count,
+        "Total Candidate Groups": snapshot.group_count,
         "Stronger Evidence": snapshot.likely_group_count,
         "Review Evidence": snapshot.review_group_count,
-        "Conflicting families": snapshot.conflict_count,
-        "Deferred families": snapshot.deferred_count,
-        "Records in candidate groups": sum(
+        "Conflicting Families": snapshot.conflict_count,
+        "Deferred Families": snapshot.deferred_count,
+        "Records in Candidate Groups": sum(
             group.member_count for group in snapshot.groups
         ),
-        "Unassigned records": snapshot.unassigned_count,
+        "Unassigned Records": snapshot.unassigned_count,
     }
 
 
@@ -351,7 +380,7 @@ def test_empty_state_is_friendly_and_structurally_valid(db, monkeypatch):
     )
     workbook = _workbook(authority_selected_system_groups_to_xlsx(db, 21))
     assert tuple(workbook.sheetnames) == SHEET_ORDER
-    assert workbook["Overview"]["G11"].value == 0
+    assert workbook["Overview"]["A16"].value == 0
     assert workbook["Review Groups"]["A2"].value == (
         "No candidate groups were generated for this scan."
     )

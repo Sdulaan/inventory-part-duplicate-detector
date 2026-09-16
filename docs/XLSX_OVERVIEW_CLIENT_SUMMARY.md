@@ -1,5 +1,12 @@
 # XLSX Overview client scan summary
 
+> **Later presentation redesign:** the same authoritative values now appear in
+> a professional dashboard hierarchy with compact scan cards, KPI blocks,
+> separate diagnostic findings, unambiguous human-review progress, and a muted
+> technical footer. Dates display as `DD Mon YYYY, HH:MM`, and conditions use a
+> bullet separator. Data sources and semantics are unchanged. See
+> `XLSX_OVERVIEW_PROFESSIONAL_REDESIGN.md`.
+
 ## Status
 
 `XLSX_OVERVIEW_CLIENT_SUMMARY_VERIFIED`
@@ -29,7 +36,7 @@ selection displays `None selected`.
 Site is displayed only when `CONTRACT` was actually selected. The persisted
 mode name does not cause Site to appear. For example:
 
-- `CONTRACT, UNIT_MEAS` displays `Site, Inventory UOM`;
+- `CONTRACT, UNIT_MEAS` displays `Site • Inventory UOM` in the redesigned Overview;
 - `UNIT_MEAS` displays `Inventory UOM`; and
 - an empty selection displays `None selected`.
 
