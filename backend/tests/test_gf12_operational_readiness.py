@@ -472,6 +472,7 @@ def test_or24_only_bounded_xlsx_export_changes_in_production():
             or "assess_lexical_trust" in diff
             or "retrieval_order_key" in diff
             or "request_scoped_group_constraints" in diff
+            or "selected_condition_labels" in diff
         )
     assert "generate_candidate_pairs" not in diff
     if "assess_lexical_trust" not in diff:

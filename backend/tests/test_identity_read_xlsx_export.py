@@ -1,6 +1,8 @@
 import csv
 import dataclasses
 import io
+import json
+from datetime import datetime
 
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
@@ -98,14 +100,14 @@ def test_client_workbook_contract_semantics_merges_and_review(db, client):
     assert "Inventory Identity Review Candidate Report" in overview_text
     assert WORKBOOK_NOTICE in overview_text
     assert "Human decisions are authoritative" in overview_text
-    assert overview["A7"].value == "Input Records"
-    assert overview["A8"].value == snapshot.canonical_record_count
-    assert overview["C7"].value == "Candidate Groups"
-    assert overview["C8"].value == snapshot.group_count
-    assert overview["E11"].value == "Deferred / Unreviewed"
-    assert overview["E12"].value == 1
-    assert overview["A22"].value == "Scan ID"
-    assert overview["C22"].value == scan.id
+    assert overview["A7"].value == "Number of records"
+    assert overview["D7"].value == snapshot.canonical_record_count
+    assert overview["C11"].value == "Total candidate groups"
+    assert overview["G11"].value == snapshot.group_count
+    assert overview["E23"].value == "Deferred / Unreviewed"
+    assert overview["E24"].value == 1
+    assert overview["A34"].value == "Scan ID"
+    assert overview["C34"].value == scan.id
 
     review = workbook["Review Groups"]
     index = workbook["Group Index"]
@@ -217,6 +219,88 @@ def test_repeated_generation_is_semantically_and_visually_deterministic(db):
     )
 
 
+def test_overview_uses_persisted_scan_metadata_and_ui_ordered_condition_labels(db):
+    scan = review_scan(db)
+    scan.started_at = datetime(2026, 9, 14, 8, 0, 0)
+    scan.completed_at = datetime(2026, 9, 14, 12, 34, 56)
+    scan.total_records = 5327
+    scan.selected_fields = json.dumps(["UNIT_MEAS", "CONTRACT"])
+    db.commit()
+
+    overview = _workbook(
+        authority_selected_system_groups_to_xlsx(db, scan.id)
+    )["Overview"]
+    assert overview["D5"].value == "2026-09-14T12:34:56"
+    assert overview["D6"].value == "Site, Inventory UOM"
+    assert overview["D7"].value == 5327
+    assert overview["D8"].value == "IFS APP Test"
+
+    scan.completed_at = None
+    db.commit()
+    overview = _workbook(
+        authority_selected_system_groups_to_xlsx(db, scan.id)
+    )["Overview"]
+    assert overview["D5"].value == "2026-09-14T08:00:00"
+
+    for selected_fields, expected in (
+        (["UNIT_MEAS"], "Inventory UOM"),
+        ([], "None selected"),
+        (["FUTURE_CLIENT_FIELD"], "Future Client Field"),
+    ):
+        scan.selected_fields = json.dumps(selected_fields)
+        db.commit()
+        overview = _workbook(
+            authority_selected_system_groups_to_xlsx(db, scan.id)
+        )["Overview"]
+        assert overview["D6"].value == expected
+        assert "Site" not in str(overview["D6"].value)
+
+
+def test_overview_findings_match_authoritative_projection_counts(db):
+    scan = review_scan(db)
+    snapshot = IdentityReadService(db).load_identity_read_snapshot(scan.id)
+    overview = _workbook(
+        authority_selected_system_groups_to_xlsx(db, scan.id)
+    )["Overview"]
+    findings = {
+        overview.cell(row, 3).value: overview.cell(row, 7).value
+        for row in range(11, 18)
+    }
+    assert findings == {
+        "Total candidate groups": snapshot.group_count,
+        "Stronger Evidence": snapshot.likely_group_count,
+        "Review Evidence": snapshot.review_group_count,
+        "Conflicting families": snapshot.conflict_count,
+        "Deferred families": snapshot.deferred_count,
+        "Records in candidate groups": sum(
+            group.member_count for group in snapshot.groups
+        ),
+        "Unassigned records": snapshot.unassigned_count,
+    }
+
+
+def test_xlsx_export_does_not_mutate_request_or_group_semantics(db):
+    scan = review_scan(db)
+    before = IdentityReadService(db).load_identity_read_snapshot(scan.id)
+    selected_fields = scan.selected_fields
+    authority_selected_system_groups_to_xlsx(db, scan.id)
+    db.expire_all()
+    after = IdentityReadService(db).load_identity_read_snapshot(scan.id)
+
+    assert db.get(DuplicateScan, scan.id).selected_fields == selected_fields
+    assert after.snapshot_fingerprint == before.snapshot_fingerprint
+    assert [
+        (group.status, tuple(member.stable_record_reference for member in group.members))
+        for group in after.groups
+    ] == [
+        (group.status, tuple(member.stable_record_reference for member in group.members))
+        for group in before.groups
+    ]
+    assert after.conflicts == before.conflicts
+    assert after.deferred_work_units == before.deferred_work_units
+    assert after.unassigned_records == before.unassigned_records
+
+
 def test_data_level_projection_is_logically_equivalent(db):
     scan = review_scan(db)
     _, raw_rows = authority_selected_system_group_rows(db, scan.id)
@@ -267,7 +351,7 @@ def test_empty_state_is_friendly_and_structurally_valid(db, monkeypatch):
     )
     workbook = _workbook(authority_selected_system_groups_to_xlsx(db, 21))
     assert tuple(workbook.sheetnames) == SHEET_ORDER
-    assert workbook["Overview"]["C8"].value == 0
+    assert workbook["Overview"]["G11"].value == 0
     assert workbook["Review Groups"]["A2"].value == (
         "No candidate groups were generated for this scan."
     )

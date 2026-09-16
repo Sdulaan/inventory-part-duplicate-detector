@@ -610,6 +610,7 @@ def test_rf26_only_bounded_xlsx_export_production_change():
                 or "assess_lexical_trust" in diff
                 or "retrieval_order_key" in diff
                 or "request_scoped_group_constraints" in diff
+                or "selected_condition_labels" in diff
             )
         forbidden_names = ["generate_candidate_pairs"]
         if "assess_lexical_trust" not in diff:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from io import BytesIO
 
@@ -10,6 +11,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
+from app.core.constants import FIELD_DEFINITIONS
 from app.db.models import DuplicateScan
 from app.identity_read.key_codec import serialize_versioned_identity_group_key
 from app.services.identity_group_review_service import VersionedIdentityGroupReviewService
@@ -24,6 +26,7 @@ WORKBOOK_NOTICE = (
     "System-generated groups are suggestions requiring human review. "
     "They are not automatic merge instructions."
 )
+REPORT_CARRIED_OUT_BY = "IFS APP Test"
 SHEET_ORDER = (
     "Overview",
     "Review Groups",
@@ -249,6 +252,72 @@ def _write_kpi(sheet, columns: str, label: str, value, *, start_row: int) -> Non
     )
 
 
+def selected_condition_labels(selected_fields_json: str) -> str:
+    """Return persisted selected fields in stable UI order with safe fallbacks."""
+    try:
+        decoded = json.loads(selected_fields_json or "[]")
+    except (TypeError, json.JSONDecodeError):
+        decoded = []
+    if not isinstance(decoded, list):
+        decoded = []
+    selected = {
+        str(value).strip().upper() for value in decoded if str(value).strip()
+    }
+    labels_by_field = {
+        item["field"]: item["display"]
+        for item in FIELD_DEFINITIONS
+        if not item["required"]
+    }
+    ordered = [
+        labels_by_field[field]
+        for field in labels_by_field
+        if field in selected
+    ]
+    ordered.extend(
+        field.replace("_", " ").title()
+        for field in sorted(selected - labels_by_field.keys())
+    )
+    return ", ".join(ordered) or "None selected"
+
+
+def _write_overview_pair(sheet, row_number: int, label: str, value) -> None:
+    _merge_and_write(
+        sheet, f"A{row_number}:C{row_number}", label,
+        fill=PatternFill("solid", fgColor=_PALE_GRAY),
+        font=Font(color=_TEXT, bold=True),
+        alignment=Alignment(vertical="center", wrap_text=True),
+    )
+    _merge_and_write(
+        sheet, f"D{row_number}:H{row_number}", value,
+        fill=PatternFill("solid", fgColor=_WHITE),
+        font=Font(color=_TEXT),
+        alignment=Alignment(vertical="center", wrap_text=True),
+    )
+
+
+def _write_findings_row(
+    sheet, row_number: int, category: str, label: str, value,
+) -> None:
+    _merge_and_write(
+        sheet, f"A{row_number}:B{row_number}", category,
+        fill=PatternFill("solid", fgColor=_PALE_BLUE),
+        font=Font(color=_TEXT, bold=True),
+        alignment=Alignment(vertical="center", wrap_text=True),
+    )
+    _merge_and_write(
+        sheet, f"C{row_number}:F{row_number}", label,
+        fill=PatternFill("solid", fgColor=_WHITE),
+        font=Font(color=_TEXT),
+        alignment=Alignment(vertical="center", wrap_text=True),
+    )
+    _merge_and_write(
+        sheet, f"G{row_number}:H{row_number}", value,
+        fill=PatternFill("solid", fgColor=_WHITE),
+        font=Font(color=_NAVY, bold=True),
+        alignment=Alignment(horizontal="right", vertical="center"),
+    )
+
+
 def _write_overview(workbook, scan, snapshot, review_states) -> None:
     sheet = workbook.active
     sheet.title = "Overview"
@@ -261,7 +330,46 @@ def _write_overview(workbook, scan, snapshot, review_states) -> None:
         alignment=Alignment(horizontal="center", vertical="center"),
     )
     _merge_and_write(
-        sheet, "A4:H5",
+        sheet, "A4:H4", "SCAN SUMMARY",
+        fill=PatternFill("solid", fgColor=_NAVY),
+        font=Font(color=_WHITE, bold=True),
+        alignment=Alignment(horizontal="left", vertical="center"),
+    )
+    executed_at = scan.completed_at or scan.started_at
+    for row_number, (label, value) in enumerate((
+        ("Date", executed_at),
+        ("Duplicate-checking conditions", selected_condition_labels(scan.selected_fields)),
+        (
+            "Number of records",
+            scan.total_records
+            if scan.total_records is not None
+            else snapshot.canonical_record_count,
+        ),
+        ("Carried out by", REPORT_CARRIED_OUT_BY),
+    ), start=5):
+        _write_overview_pair(sheet, row_number, label, value)
+
+    _merge_and_write(
+        sheet, "A10:H10", "FINDINGS SUMMARY",
+        fill=PatternFill("solid", fgColor=_NAVY),
+        font=Font(color=_WHITE, bold=True),
+        alignment=Alignment(horizontal="left", vertical="center"),
+    )
+    records_in_groups = sum(group.member_count for group in snapshot.groups)
+    findings = (
+        ("Candidate Groups", "Total candidate groups", snapshot.group_count),
+        ("Candidate Groups", "Stronger Evidence", snapshot.likely_group_count),
+        ("Candidate Groups", "Review Evidence", snapshot.review_group_count),
+        ("Candidate Groups", "Conflicting families", snapshot.conflict_count),
+        ("Candidate Groups", "Deferred families", snapshot.deferred_count),
+        ("Record Coverage", "Records in candidate groups", records_in_groups),
+        ("Record Coverage", "Unassigned records", snapshot.unassigned_count),
+    )
+    for row_number, values in enumerate(findings, start=11):
+        _write_findings_row(sheet, row_number, *values)
+
+    _merge_and_write(
+        sheet, "A19:H20",
         WORKBOOK_NOTICE + " Human decisions are authoritative and override system suggestions.",
         fill=PatternFill("solid", fgColor=_PALE_GOLD),
         font=Font(color=_TEXT, bold=True),
@@ -280,28 +388,27 @@ def _write_overview(workbook, scan, snapshot, review_states) -> None:
         not state.get("reviewed") or state.get("current_decision_type") == "UNSURE"
         for state in review_states.values()
     )
-    for columns, label, value in (
-        ("A:B", "Input Records", snapshot.canonical_record_count),
-        ("C:D", "Candidate Groups", snapshot.group_count),
-        ("E:F", "Stronger Evidence", snapshot.likely_group_count),
-        ("G:H", "Needs Additional Review", snapshot.review_group_count),
-    ):
-        _write_kpi(sheet, columns, label, value, start_row=7)
+    _merge_and_write(
+        sheet, "A22:H22", "Human Review Progress",
+        fill=PatternFill("solid", fgColor=_NAVY),
+        font=Font(color=_WHITE, bold=True),
+        alignment=Alignment(horizontal="left", vertical="center"),
+    )
     for columns, label, value in (
         ("A:B", "Human Confirmed", confirmed),
         ("C:D", "Human Rejected", rejected),
         ("E:F", "Deferred / Unreviewed", deferred),
-        ("G:H", "Conflicts / Deferred Work", snapshot.conflict_count + snapshot.deferred_count),
+        ("G:H", "Requires Human Review", snapshot.group_count - confirmed - rejected),
     ):
-        _write_kpi(sheet, columns, label, value, start_row=11)
+        _write_kpi(sheet, columns, label, value, start_row=23)
     _merge_and_write(
-        sheet, "A15:H15", "How to use this workbook",
+        sheet, "A27:H27", "How to use this workbook",
         fill=PatternFill("solid", fgColor=_NAVY),
         font=Font(color=_WHITE, bold=True),
         alignment=Alignment(horizontal="left", vertical="center"),
     )
     _merge_and_write(
-        sheet, "A16:H19",
+        sheet, "A28:H31",
         "1. Start with Review Groups.\n"
         "2. Review the records inside each candidate group.\n"
         "3. System evidence is advisory.\n"
@@ -319,12 +426,12 @@ def _write_overview(workbook, scan, snapshot, review_states) -> None:
         ("Unassigned Records", snapshot.unassigned_count),
     )
     _merge_and_write(
-        sheet, "A21:H21", "Report details",
+        sheet, "A33:H33", "Report details",
         fill=PatternFill("solid", fgColor="5B7894"),
         font=Font(color=_WHITE, bold=True),
         alignment=Alignment(horizontal="left", vertical="center"),
     )
-    for row_number, (label, value) in enumerate(metadata, start=22):
+    for row_number, (label, value) in enumerate(metadata, start=34):
         _merge_and_write(
             sheet, f"A{row_number}:B{row_number}", label,
             fill=PatternFill("solid", fgColor=_PALE_GRAY),
@@ -337,8 +444,8 @@ def _write_overview(workbook, scan, snapshot, review_states) -> None:
             font=Font(color=_TEXT),
             alignment=Alignment(vertical="center", wrap_text=True),
         )
-    sheet.freeze_panes = "A7"
-    for row_number in (1, 2, 4, 5, 8, 9, 12, 13):
+    sheet.freeze_panes = "A5"
+    for row_number in (1, 2, 5, 6, 7, 8, 19, 20, 24, 25):
         sheet.row_dimensions[row_number].height = 26
 
 
