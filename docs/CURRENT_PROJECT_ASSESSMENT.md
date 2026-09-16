@@ -1,5 +1,32 @@
 # Current project assessment
 
+## Request-scoped Site constraint verified
+
+`REQUEST_SCOPED_SITE_CONSTRAINT_VERIFIED` /
+`DEMO_SAFE_WITH_REQUEST_SCOPED_SITE_CONSTRAINT`: selected Site now means all
+members of a final suggested group must share the same normalized Site. Early
+hybrid pruning and an authoritative GF5 membership check enforce the request;
+output validation provides a second safety check. The policy creates no
+durable cannot-link or human constraint and disappears when Site is unselected.
+On the 5,327-record acceptance, Site + UOM produced 208 groups and zero
+cross-site groups; the UOM-only control retained 18 cross-site groups. Provider
+calls and persisted request-derived constraints were both zero, and the
+five-sheet XLSX invariant passed. The 158-group result remains historical-only.
+See `REQUEST_SCOPED_SITE_CONSTRAINT.md`.
+
+## Acceptance provenance is machine-readable
+
+`ACCEPTANCE_PROVENANCE_MANIFEST_VERIFIED`: acceptance tooling now fails its
+provenance gate unless it can persist safe input/request/configuration,
+commit/dirty state, semantic reference/runtime versions, separate S0-S10 hashes,
+counts, and zero provider calls. The generated 158-group manifest records the
+rehearsed `SAME_SITE_DUPLICATE`, `CONTRACT` + `UNIT_MEAS`, threshold-75 request
+and is fingerprint-distinct from the no-selected-fields, threshold-60
+164-group diagnostic. Same input + same engine version + same
+request/configuration + same deterministic reference data → same semantic
+result. No production path, schema, frontend, provider, or identity semantic was
+changed. See `ACCEPTANCE_PROVENANCE_MANIFEST.md`.
+
 ## Ambiguous alias portability review complete
 
 `AMBIGUOUS_ALIAS_REVIEW_RECOMMENDS_DISABLE_PENDING_VALIDATION`: neither

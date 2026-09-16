@@ -1,5 +1,11 @@
 # Demo XLSX client UX polish
 
+> **Later presentation enhancement:** `Overview` now begins with persisted scan
+> metadata and authority-selected findings counts, including the exact selected
+> Duplicate Checking Conditions and `Carried out by: IFS APP Test`. The
+> five-sheet, zero-formula, advisory, and human-authority contracts below remain
+> unchanged. See `XLSX_OVERVIEW_CLIENT_SUMMARY.md`.
+
 Classification: `DEMO_XLSX_CLIENT_UX_POLISH_READY`
 
 Reference: the commit containing this document, with subject

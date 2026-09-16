@@ -14,7 +14,9 @@ from app.services.canonical_record_service import CanonicalScanRecord
 
 
 RESOLVER_CONTRACT_VERSION = "identity-resolution-contract-v1"
-DEFAULT_RESOLVER_ALGORITHM_VERSION = "constrained-identity-resolver-v2-stable-ordering"
+DEFAULT_RESOLVER_ALGORITHM_VERSION = (
+    "constrained-identity-resolver-v3-request-scoped-site"
+)
 
 
 class IdentityResolutionConstraintType(str, Enum):
@@ -242,6 +244,7 @@ class IdentityResolutionInput:
     human_constraints: tuple[IdentityResolutionConstraint, ...]
     resolver_algorithm_version: str
     resolver_configuration: ResolverConfiguration
+    request_scoped_group_constraints: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

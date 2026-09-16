@@ -46,6 +46,10 @@ from app.resolution.validation import (
     with_resolution_result_fingerprint,
     with_targeted_request_fingerprint,
 )
+from app.resolution.request_constraints import (
+    CONTRACT_GROUP_CONSTRAINT,
+    contract_group_is_compatible,
+)
 
 
 class TargetedEvidenceProvider(Protocol):
@@ -351,6 +355,12 @@ def _bridge_summary(member_ids, lookup):
 
 def _build_group(value, unit, members, lookup, targeted_results):
     members = tuple(sorted(members))
+    if CONTRACT_GROUP_CONSTRAINT in value.request_scoped_group_constraints:
+        records_by_id = {
+            record.record_id: record for record in value.canonical_records
+        }
+        if not contract_group_is_compatible(records_by_id[item] for item in members):
+            return None
     internal = [lookup.get(pair) for pair in combinations(members, 2)]
     if any(item is None for item in internal):
         return None

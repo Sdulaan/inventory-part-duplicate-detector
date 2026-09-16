@@ -59,6 +59,7 @@ from app.resolution.validation import (
     adapt_effective_human_constraints,
     validate_resolution_result,
 )
+from app.resolution.request_constraints import CONTRACT_GROUP_CONSTRAINT
 from app.services.canonical_record_service import load_scan_record_catalog
 from app.services.identity_evidence_service import load_identity_evidence
 from app.services.identity_group_review_service import IdentityGroupReviewService
@@ -143,6 +144,9 @@ def _resolution_input(
     constraints = adapt_effective_human_constraints(
         scan_id=scan_id, canonical_records=records, effective_constraints=effective
     )
+    selected_fields = {
+        str(field).strip().upper() for field in json.loads(scan.selected_fields)
+    }
     return IdentityResolutionInput(
         scan_id=scan_id,
         discovery_run_id=discovery_run_id,
@@ -153,6 +157,11 @@ def _resolution_input(
         human_constraints=constraints,
         resolver_algorithm_version=DEFAULT_RESOLVER_ALGORITHM_VERSION,
         resolver_configuration=configuration,
+        request_scoped_group_constraints=(
+            (CONTRACT_GROUP_CONSTRAINT,)
+            if CONTRACT_GROUP_CONSTRAINT in selected_fields
+            else ()
+        ),
     )
 
 
@@ -178,6 +187,7 @@ def resolution_input_fingerprint(value: IdentityResolutionInput) -> str:
             "authority": c.source_authority,
             "reference": c.source_reference,
         } for c in value.human_constraints),
+        "request_scoped_group_constraints": value.request_scoped_group_constraints,
         "resolver_algorithm_version": value.resolver_algorithm_version,
         "configuration": value.resolver_configuration,
     })
