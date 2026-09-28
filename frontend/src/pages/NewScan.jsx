@@ -277,17 +277,28 @@ export default function NewScan() {
             </select>
             <small>Site is enforced only when selected below. When unselected, cross-site identity suggestions remain eligible for review.</small>
           </label>
-          {askInventoryPartQuestion && (
-            <fieldset className="inventory-part-choice" disabled={!!busy}>
-              <legend>Include inventory parts in this scan?</legend>
-              <label><input type="radio" name="include-inventory-parts" checked={includeInventoryParts} onChange={() => setIncludeInventoryParts(true)} /> Include inventory parts</label>
-              <label><input type="radio" name="include-inventory-parts" checked={!includeInventoryParts} onChange={() => setIncludeInventoryParts(false)} /> Exclude inventory parts</label>
-              <small>Some {partType === 'PURCHASE' ? 'purchase' : 'sales'} parts are also inventory parts and get scanned in the Inventory Parts scan. {INVENTORY_PART_FILTER_HELP[partType]}</small>
-            </fieldset>
-          )}
           <label>Parts export (CSV or XLSX)<input type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled={!!busy} onChange={event => selectFile(event.target.files[0] || null)} /></label>
         </section>
-        <section className="panel"><h2>Duplicate-checking conditions</h2><div className="checks">{checklistFields.map(f => <label key={f.field}><input type="checkbox" checked={selected.includes(f.field)} disabled={!!busy} onChange={() => setSelected(s => s.includes(f.field) ? s.filter(x => x !== f.field) : [...s, f.field])} /><span>{fieldDisplayForPartType(f, partType)}<small>{duplicateConditionHelp(f.field)}</small>{shouldShowFieldCode(f) && <small>{f.field}</small>}</span></label>)}</div></section>
+        <div className="stack">
+          <section className="panel"><h2>Duplicate-checking conditions</h2><div className="checks">{checklistFields.map(f => <label key={f.field}><input type="checkbox" checked={selected.includes(f.field)} disabled={!!busy} onChange={() => setSelected(s => s.includes(f.field) ? s.filter(x => x !== f.field) : [...s, f.field])} /><span>{fieldDisplayForPartType(f, partType)}<small>{duplicateConditionHelp(f.field)}</small>{shouldShowFieldCode(f) && <small>{f.field}</small>}</span></label>)}</div></section>
+          {askInventoryPartQuestion && (
+            <section className="panel">
+              <h2>Include inventory parts?</h2>
+              <fieldset className="inventory-part-choice" disabled={!!busy}>
+                <legend className="sr-only">Include inventory parts in this scan?</legend>
+                <label className={`radio-card${includeInventoryParts ? ' selected' : ''}`}>
+                  <input type="radio" name="include-inventory-parts" checked={includeInventoryParts} onChange={() => setIncludeInventoryParts(true)} />
+                  <span className="radio-card-body"><b>Include inventory parts</b><small>Scan every {partType === 'PURCHASE' ? 'purchase' : 'sales'} part, including rows also marked as inventory parts.</small></span>
+                </label>
+                <label className={`radio-card${!includeInventoryParts ? ' selected' : ''}`}>
+                  <input type="radio" name="include-inventory-parts" checked={!includeInventoryParts} onChange={() => setIncludeInventoryParts(false)} />
+                  <span className="radio-card-body"><b>Exclude inventory parts</b><small>Skip rows whose "Inventory Part" column is Yes and scan only the rows marked No.</small></span>
+                </label>
+                <small className="inventory-part-note">Some {partType === 'PURCHASE' ? 'purchase' : 'sales'} parts are also inventory parts and get scanned in the Inventory Parts scan. {INVENTORY_PART_FILTER_HELP[partType]}</small>
+              </fieldset>
+            </section>
+          )}
+        </div>
       </div>
       <div className="actions"><button type="button" className="secondary" onClick={validate} disabled={!!busy || !file}>{busy === 'validate' ? 'Validating…' : validationIsCurrent ? 'Validate again' : 'Validate CSV'}</button><button type="button" onClick={run} disabled={!canRun}>{busy === 'scan' ? 'Processing inventory…' : 'Run scan'}</button></div>
       {!validation && <p className="validation-guidance">Run Scan becomes available after the current CSV and mapping pass validation.</p>}
