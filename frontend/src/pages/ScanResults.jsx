@@ -22,8 +22,39 @@ import {
   summarizeReviewedExportAvailability,
 } from '../utils/identityExportUi'
 import { scanStatusLabel } from '../utils/productJourneyUi'
+import {
+  relationshipLabel,
+  relationshipScoreLabel,
+  visibleEvidenceSections,
+} from '../utils/deterministicExplanationUi'
 
 const memberReference = member => member.stable_record_reference || member.record_ref_key
+
+const matchBandLabel = value => ({
+  HIGH_MATCH: 'High Match',
+  MODERATE_MATCH: 'Moderate Match',
+  BORDERLINE_MATCH: 'Borderline Match',
+}[value] || 'Unscored')
+
+function MatchStrength({ group, detailed = false }) {
+  if (group.match_strength_status !== 'SCORED') return <section className="match-strength" aria-label="Deterministic match strength">
+    <p><b>Match Strength:</b> Unscored</p>
+    <small>Deterministic evidence was not sufficient to calculate this advisory score.</small>
+  </section>
+  return <section className="match-strength" aria-label="Deterministic match strength">
+    <p><b>Match Strength:</b> {Number(group.match_strength).toFixed(2)} / 100 · {matchBandLabel(group.match_band)}</p>
+    <small>Deterministic evidence summary; not a probability or a human decision.</small>
+    {group.safety_status_message && <p className="warning">{group.safety_status_message}</p>}
+    {detailed && group.group_size >= 3 && <details><summary>How this group score was derived</summary>
+      <div className="metrics">
+        <span>Support density: {Number(group.support_density).toFixed(4)}</span>
+        <span>Lower quartile: {Number(group.lower_quartile_score).toFixed(2)}</span>
+        <span>Weakest member anchor: {Number(group.weakest_member_anchor).toFixed(2)}</span>
+        <span>Pair range: {Number(group.pair_score_min).toFixed(2)}–{Number(group.pair_score_max).toFixed(2)}</span>
+      </div>
+    </details>}
+  </section>
+}
 
 function MemberTable({ members }) {
   return <div className="table-wrap mini group-members"><table>
@@ -39,7 +70,6 @@ function MemberTable({ members }) {
 
 function EvidenceSummary({ detail }) {
   const coverage = detail.validation_coverage || {}
-  const evidence = detail.internal_evidence || []
   return <section aria-label="Validation coverage and evidence">
     <h3>Validation coverage</h3>
     <p><b>{validationModeLabel(detail.validation_mode)}</b></p>
@@ -50,12 +80,46 @@ function EvidenceSummary({ detail }) {
       <span>Neutral: {coverage.non_groupable_count || 0}</span>
       <span>Required evidence: {coverage.required_validation_evidence_count || 0}</span>
     </div>
-    <details><summary>Advanced relationship evidence ({evidence.length} evaluated)</summary>
-      {!evidence.length ? <p className="empty">No evaluated relationship evidence is present.</p> :
-        <pre className="evidence-json">{JSON.stringify(evidence, null, 2)}</pre>}
-    </details>
     {detail.validation_mode === 'PROGRESSIVE_TARGETED' &&
       <small>Only actual evaluated evidence is shown. Missing non-required relationships are not synthesized.</small>}
+  </section>
+}
+
+function EvidenceItems({ title, items }) {
+  if (!items?.length) return null
+  return <section><h5>{title}</h5><ul>{items.map((item, index) =>
+    <li key={`${item.code}-${index}`}><b>{item.label}:</b> {item.detail}
+      {(item.left_value || item.right_value) && <small className="evidence-values">Left: {item.left_value || 'not recorded'} · Right: {item.right_value || 'not recorded'}</small>}
+    </li>)}</ul></section>
+}
+
+function DeterministicExplanation({ explanation, compact = false }) {
+  if (!explanation) return null
+  return <section className="deterministic-explanation" aria-label="Deterministic group explanation">
+    <h3>Why this group exists</h3>
+    <p>{explanation.group_summary}</p>
+    {!compact && <><h3>Relationship Evidence</h3>
+      <div className="relationship-list">{(explanation.relationships || []).map(relationship => {
+        const detail = (explanation.pair_explanations || []).find(item => item.relationship_id === relationship.relationship_id)
+        return <details key={relationship.relationship_id} className="relationship-evidence">
+          <summary><b>{relationship.left_display_identity}</b> ↔ <b>{relationship.right_display_identity}</b>
+            {' · '}{relationshipScoreLabel(relationship.deterministic_score)}
+            {' · '}{relationshipLabel(relationship.signed_relationship)}
+          </summary>
+          {detail && <div>
+            {detail.availability_message && <p className="warning">{detail.availability_message}</p>}
+            {visibleEvidenceSections(detail).map(([title, items]) =>
+              <EvidenceItems key={title} title={title} items={items} />)}
+            <section><h5>Decision</h5><p>{detail.decision_summary}</p>
+              {!!detail.decision_reason_codes?.length && <p><b>Recorded reason codes:</b> {detail.decision_reason_codes.join(', ')}</p>}
+            </section>
+            <details><summary>Technical / provenance details</summary>
+              <small>Evidence origin: {detail.evidence_origin} · Evaluator: {detail.evaluator_version} · Evidence contract: {detail.evidence_version}</small>
+            </details>
+          </div>}
+        </details>
+      })}</div>
+    </>}
   </section>
 }
 
@@ -83,11 +147,12 @@ function AdvisoryEligibility({ scanId, detail }) {
 
 function GroupDetail({ scanId, detail, onReviewSaved }) {
   return <div className="group-detail">
+    <MatchStrength group={detail} detailed />
     <section><h3>All identity-set members</h3>
       <p><b>Projection-safe identity:</b> <code>{detail.versioned_group_key}</code></p>
       <MemberTable members={detail.members || []} />
     </section>
-    <SystemExplanation explanation={detail.system_explanation} heading="Why the system suggested this group" />
+    <DeterministicExplanation explanation={detail.deterministic_explanation} />
     <EvidenceSummary detail={detail} />
     <GroupReviewPanel scanId={scanId} detail={detail} onSaved={onReviewSaved} />
     <AdvisoryEligibility scanId={scanId} detail={detail} />
@@ -105,19 +170,23 @@ function IdentityGroups({ scanId, result, detailByKey, loadingKey, detailError, 
       <div className="group-head"><div><p className="eyebrow">System-suggested candidate group</p>
         <h2>{groupAuthorityLabel(group.group_status, group.review_state)}</h2>
         <small>{group.group_size} records · {validationCoverageLabel(group.validation_coverage)}</small>
-      </div><span className={`badge group-status ${group.group_status}`}>{groupReviewAuthorityLabel(group.review_state)}</span></div>
+      </div>
+      <div className="group-head-actions">
+        <span className={`badge group-status ${group.group_status}`}>{groupReviewAuthorityLabel(group.review_state)}</span>
+        <button type="button" className="secondary group-detail-toggle" aria-expanded={expanded} onClick={() => toggleDetail(key, expanded)}>
+          {expanded ? 'Close identity-set details' : `Open all ${group.group_size} members`}
+        </button>
+      </div></div>
       <p><b>System evidence tier:</b> {groupEvidenceTierLabel(group.group_status)}</p>
+      <MatchStrength group={group} />
       <p><b>Validation:</b> {validationModeLabel(group.validation_mode)}</p>
-      <SystemExplanation explanation={group.system_explanation} compact />
+      <DeterministicExplanation explanation={group.deterministic_explanation} compact />
       <p><b>Human authority:</b> {groupReviewLabel(group.review_state)}</p>
       <div className="member-preview" aria-label={`${group.group_size}-record identity-set preview`}>
         {(group.member_preview || []).map(member => <span key={member.stable_record_reference}><b>{member.part_no}</b> — {member.description}<small>{member.contract || 'No site / contract'} · {member.uom || 'No UOM'}</small></span>)}
         {group.group_size > (group.member_preview || []).length && <span>+ {group.group_size - group.member_preview.length} more member(s)</span>}
       </div>
       <p>This is an advisory 2..N member candidate group. No records are automatically merged, deleted, or changed in IFS.</p>
-      <button type="button" className="link" aria-expanded={expanded} onClick={() => toggleDetail(key, expanded)}>
-        {expanded ? 'Close identity-set details' : `Open all ${group.group_size} members`}
-      </button>
       {expanded && <div>{loadingKey === key && <p>Loading identity-set detail…</p>}
         {detailError?.id === key && <p className="error" role="alert">{detailError.message}</p>}
         {detail && <GroupDetail scanId={scanId} detail={detail} onReviewSaved={onReviewSaved} />}
@@ -330,6 +399,9 @@ function ValidScanResults({ id }) {
           <article><label>System-Suggested Candidate Groups</label><strong>{summary.group_count}</strong><small>Advisory candidates requiring human review</small></article>
           <article><label>Stronger Evidence</label><strong>{summary.likely_group_count}</strong><small>Not a probability or confirmation</small></article>
           <article><label>Review Evidence</label><strong>{summary.review_group_count}</strong><small>Requires Human Review</small></article>
+          <article><label>High Match</label><strong>{summary.match_strength_distribution?.HIGH_MATCH ?? 0}</strong><small>Deterministic advisory band</small></article>
+          <article><label>Moderate Match</label><strong>{summary.match_strength_distribution?.MODERATE_MATCH ?? 0}</strong><small>Deterministic advisory band</small></article>
+          <article><label>Borderline / Unscored</label><strong>{(summary.match_strength_distribution?.BORDERLINE_MATCH ?? 0) + (summary.match_strength_distribution?.UNSCORED ?? 0)}</strong><small>Requires evidence review</small></article>
           <article><label>Human Confirmed Groups</label><strong>{reviewedExportState.affirmative_groups ?? '…'}</strong></article>
           <article><label>Human Rejected Candidates</label><strong>{reviewedExportState.rejected_groups ?? '…'}</strong></article>
           <article><label>Review Deferred / Unreviewed</label><strong>{reviewedExportState.status === 'ready' ? (reviewedExportState.deferred_groups + reviewedExportState.unreviewed_groups) : '…'}</strong></article>

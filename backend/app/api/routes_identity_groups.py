@@ -66,6 +66,13 @@ from app.identity_read.explanations import (
     explain_identity_conflict,
     explain_identity_group,
 )
+from app.identity_read.deterministic_explanations import (
+    project_group_explanation,
+    sources_for_group,
+)
+from app.services.deterministic_explanation_service import (
+    load_pair_explanation_sources,
+)
 from app.identity_read.key_codec import (
     InvalidVersionedIdentityGroupKey,
     parse_versioned_identity_group_key,
@@ -79,6 +86,11 @@ from app.services.identity_read_service import (
     IdentityReadService,
 )
 from app.llm.group_contracts import group_advisory_request_fingerprint
+from app.match_strength.service import (
+    MatchStrengthProjectionService,
+    match_strength_distribution,
+    match_strength_payload,
+)
 from app.services.group_llm_eligibility import GroupAdvisoryContractService
 
 
@@ -121,7 +133,10 @@ def _read_projection(snapshot):
     }
 
 
-def _read_group(group, *, detail=False, review_state=None):
+def _read_group(
+    group, *, match_strength, deterministic_explanation=None, detail=False,
+    review_state=None,
+):
     payload = {
         "versioned_group_key": serialize_versioned_identity_group_key(
             group.versioned_group_key
@@ -141,7 +156,12 @@ def _read_group(group, *, detail=False, review_state=None):
         "system_explanation": canonical_value(explain_identity_group(group)),
         "member_preview": [canonical_value(item) for item in group.members[:3]],
         "review_state": review_state or {"reviewed": False},
+        **match_strength_payload(match_strength, group_status=group.status.value),
     }
+    if deterministic_explanation is not None:
+        payload["deterministic_explanation"] = canonical_value(
+            deterministic_explanation
+        )
     if detail:
         payload["members"] = [canonical_value(item) for item in group.members]
         payload["internal_evidence"] = [canonical_value(item) for item in group.internal_evidence]
@@ -156,12 +176,14 @@ def authoritative_identity_summary(scan_id: int, db: Session = Depends(get_db)):
     snapshot = _identity_read_safe(
         lambda: IdentityReadService(db).load_identity_read_snapshot(scan_id)
     )
+    strengths = MatchStrengthProjectionService(db).project_groups(snapshot.groups)
     return {
         "snapshot_available": True,
         "read_ready": True,
         "projection": _read_projection(snapshot),
         **canonical_value(snapshot.summary),
         "snapshot_fingerprint": snapshot.snapshot_fingerprint,
+        "match_strength_distribution": match_strength_distribution(strengths.values()),
     }
 
 
@@ -192,12 +214,20 @@ def authoritative_identity_groups(
     review_states = VersionedIdentityGroupReviewService(db).current_states_for_snapshot(
         snapshot
     )
+    strengths = MatchStrengthProjectionService(db).project_groups(snapshot.groups)
+    loaded_explanations = load_pair_explanation_sources(db, snapshot)
     items = groups[offset:offset + limit]
     return {
         "projection": _read_projection(snapshot), "limit": limit, "offset": offset,
         "total": len(groups), "items": [
             _read_group(
                 item,
+                match_strength=strengths[item.versioned_group_key],
+                deterministic_explanation=project_group_explanation(
+                    item,
+                    strengths[item.versioned_group_key],
+                    sources_for_group(item, loaded_explanations),
+                ),
                 review_state=review_states.get(
                     serialize_versioned_identity_group_key(item.versioned_group_key)
                 ),
@@ -219,7 +249,23 @@ def authoritative_identity_group_detail(
     group = _identity_read_safe(
         lambda: IdentityReadService(db).load_identity_read_group(scan_id, key)
     )
-    return _read_group(group, detail=True)
+    strength = MatchStrengthProjectionService(db).project_group(group)
+    explanation = None
+    try:
+        snapshot = IdentityReadService(db).load_identity_read_snapshot(scan_id)
+        loaded_explanations = load_pair_explanation_sources(db, snapshot)
+        explanation = project_group_explanation(
+            group, strength, sources_for_group(group, loaded_explanations),
+            include_details=True,
+        )
+    except IdentityReadNotReady:
+        # Preserve compatibility for isolated/in-flight detail projections. A
+        # ready authoritative snapshot always takes the explanation path above.
+        pass
+    return _read_group(
+        group, match_strength=strength,
+        deterministic_explanation=explanation, detail=True,
+    )
 
 
 @router.get(

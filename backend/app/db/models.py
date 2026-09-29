@@ -711,6 +711,11 @@ class IdentityResolutionTargetedEvidence(Base):
     evaluator_version = Column(String(80))
     evidence_fingerprint = Column(String(64))
     generic_only = Column(Boolean)
+    evidence_contract_version = Column(String(80), nullable=True)
+    deterministic_score = Column(Float, nullable=True)
+    explanation_evidence_json = Column(Text, nullable=True)
+    pair_explanation_contract_version = Column(String(80), nullable=True)
+    pair_explanation_fingerprint = Column(String(64), nullable=True)
 
 
 class IdentityResolutionUnassignedRecord(Base):
@@ -848,6 +853,8 @@ class G2V2InternalEvidenceRow(Base):
     evaluator_version = Column(String(80), nullable=False)
     evidence_fingerprint = Column(String(64), nullable=False)
     required_for_validation = Column(Boolean, nullable=False)
+    source_evidence_contract_version = Column(String(80), nullable=True)
+    deterministic_score = Column(Float, nullable=True)
 
 
 class G2V2ConflictSnapshotRow(Base):
@@ -1272,6 +1279,9 @@ class ScanRecordSnapshot(Base):
     product_category_id = Column(String(128))
     hsn_sac_code = Column(String(128))
     hazard_code = Column(String(128))
+    # Selected non-Inventory conditions (Purchase/Sales fields, custom fields) as sorted JSON.
+    # Deliberately outside source_record_fingerprint so existing scan identities are unchanged.
+    extra_fields_json = Column(Text)
     normalization_version = Column(String(80))
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 

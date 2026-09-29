@@ -1,5 +1,17 @@
 # Current project assessment
 
+## Deterministic explanations are available for review
+
+`DETERMINISTIC_EXPLANATION_READ_MODEL_V1_VERIFIED` /
+`DEMO_SAFE_WITH_DETERMINISTIC_EXPLANATIONS`: persisted pair evidence now powers
+a deterministic Group Summary, Relationship Map, pair-level supporting and
+limiting facts, exact classification codes, and provenance. The UI no longer
+uses raw relationship JSON for the reviewer flow, and the five-sheet XLSX adds
+wrapped group/relationship explanations while keeping Detailed Data
+record-oriented and formulas at zero. The renderer does not rerun GF4/GF5, does
+not call an LLM, and cannot change detector or human-review authority. See
+`DETERMINISTIC_GROUP_PAIR_EXPLANATION_V1.md`.
+
 ## Request-scoped Site constraint verified
 
 `REQUEST_SCOPED_SITE_CONSTRAINT_VERIFIED` /
@@ -1677,3 +1689,15 @@ review-state, empty-state, long-comment, formula-safety, and zero-provider-call
 checks pass. No detector, GF4/GF5/GF6, membership, review authority, API/CSV,
 frontend, migration, or provider behavior changed. The containing reference
 commit has subject `Polish client XLSX review experience`.
+
+## Deterministic Match Strength V2
+
+The project now has a deterministic group-level Match Strength advisory derived
+after GF5 from persisted verified evidence. Two-member groups retain their exact
+edge score; larger groups use the lower quartile, weakest-member anchor, and
+support density. Missing or unverifiable evidence fails closed to a typed
+unscored result. The protected 5,327-row provider-disabled shadow gate preserved
+all detector outputs and S0-S10 invariants, with 208 of 208 groups scored. The
+feature is presentation-only across typed read APIs, frontend, CSV, and the
+existing five-sheet XLSX. It is not a probability, merge decision, evidence
+tier, or replacement for human review.

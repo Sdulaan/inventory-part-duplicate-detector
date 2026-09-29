@@ -287,7 +287,7 @@ def test_ps19_malformed_and_missing_column_inputs_fail_safely(client):
         files={"file": ("bad.csv", b"", "text/csv")},
     )
     assert malformed.status_code == 400
-    assert malformed.json()["detail"] == "CSV file is empty"
+    assert malformed.json()["detail"] == "Uploaded file is empty"
     missing = client.post(
         "/api/scans/validate-only",
         files={"file": ("missing.csv", b"EXTRA\nvalue\n", "text/csv")},
@@ -378,6 +378,9 @@ def test_ps24_only_bounded_xlsx_export_production_change():
         "backend/app/engine/signed_identity_evidence.py",
         "backend/app/orchestration/contracts.py",
         "backend/app/api/routes_identity_groups.py",
+        "backend/app/identity_read/deterministic_explanations.py",
+        "backend/app/resolution/pair_explanation.py",
+        "backend/app/services/deterministic_explanation_service.py",
         "backend/app/identity_read/explanations.py",
             "backend/app/schemas/identity_groups.py",
             "backend/app/schemas/identity_group_reviews.py",

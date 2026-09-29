@@ -1,5 +1,19 @@
 # Group-first inventory identity project SSOT
 
+## Deterministic group and pair explanations
+
+`DETERMINISTIC_EXPLANATION_READ_MODEL_V1_VERIFIED`: the authoritative G2-v2
+read path now projects persisted GF4/GF5 facts into a Group Summary,
+Relationship Map, and expandable Pair Explanation. The versioned contracts are
+`deterministic-group-explanation-v1` and
+`deterministic-pair-explanation-read-model-v1`, sourced from
+`deterministic-pair-explanation-v1`. The layer is presentation-only, preserves
+numeric score separately from signed relationship, fails unknown codes safe,
+supports `PARTIAL_LEGACY`, and performs no evaluator or provider call. The UI
+uses deterministic evidence rather than raw JSON; the five-sheet, zero-formula
+XLSX includes group and relationship explanations. See
+`docs/DETERMINISTIC_GROUP_PAIR_EXPLANATION_V1.md`.
+
 ## Selected Site is a request-scoped group constraint
 
 `REQUEST_SCOPED_SITE_CONSTRAINT_VERIFIED`: selecting Site (`CONTRACT`) now
@@ -775,3 +789,13 @@ Review Evidence groups, all requiring human review. Detector/GF5 semantics,
 membership, decisions, API/CSV contracts, frontend behavior, and provider calls
 remain unchanged; provider calls are zero. The containing commit subject is
 `Polish client XLSX review experience`.
+
+## Deterministic Match Strength V2
+
+`DETERMINISTIC_MATCH_STRENGTH_V2` is an additive, read-only post-GF5 advisory
+projection. It uses only persisted, semantically verified deterministic edge
+scores and never reruns the evaluator or calls a provider. The 5,327-row shadow
+gate preserved detector invariants S0-S10 exactly and scored all 208 accepted
+groups (117 high, 91 moderate). API, UI, CSV, and five-sheet XLSX presentation
+are authorized; group authority, membership, signed evidence tiers, human
+review decisions, and detector semantics remain unchanged.
