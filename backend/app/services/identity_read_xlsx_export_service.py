@@ -80,7 +80,7 @@ _REVIEW_GROUP_MEMBER_DETAIL_ORDER = (
 )
 _REVIEW_GROUP_SOURCE_PREFIX_LENGTH = len(_REVIEW_GROUP_CONTEXT_COLUMNS) + 1
 _DETAILED_DATA_PREFIX_COLUMNS = (
-    "Group", "Members", "Group Sites", "Human Decision", "Human Comment",
+    "Group", "Member Number", "Group Sites", "Human Decision", "Human Comment",
 )
 TECHNICAL_REFERENCE_COLUMNS = (
     "Group", "Canonical Group ID", "Member Number", "Part Number", "Source Row",
@@ -1280,10 +1280,10 @@ def _write_detailed_data(
     row_number = 2
     for item in groups:
         p = item["presentation"]
-        for member_row in item["member_rows"]:
+        for member_number, member_row in enumerate(item["member_rows"], start=1):
             _write_row(
                 sheet, row_number,
-                (p["label"], p["members"], p["sites"],
+                (p["label"], member_number, p["sites"],
                  p["human_decision"], p["human_comment"],
                  *_source_values(member_row, source_columns)),
                 wrap_columns=(3, 4, 5, 7),
