@@ -5,6 +5,7 @@ import unicodedata
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from app.core.constants import (
     FALLBACK_FIELD_ALIASES,
@@ -199,7 +200,9 @@ def _parse_upload_dataframe(filename: str | None, content: bytes) -> pd.DataFram
     is_xlsx = str(filename or "").strip().lower().endswith(XLSX_EXTENSIONS)
     try:
         if is_xlsx:
-            return pd.read_excel(io.BytesIO(content), dtype=str, engine="openpyxl")
+            # calamine reads large workbooks several times faster than openpyxl
+            # and yields the same string cell values.
+            return pd.read_excel(io.BytesIO(content), dtype=str, engine="calamine")
         text = _decode_csv_bytes(content)
         return pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=True)
     except Exception as exc:
@@ -240,11 +243,23 @@ async def read_csv_upload_with_metadata(
     include_inventory_parts: bool = True,
 ) -> tuple[pd.DataFrame, dict]:
     content = await file.read()
+    # Parsing a large workbook takes seconds; keep it off the event loop so
+    # other requests are still answered meanwhile.
+    return await run_in_threadpool(
+        _read_upload_with_metadata, file.filename, content, column_mapping,
+        custom_fields, db, part_type, include_inventory_parts,
+    )
+
+
+def _read_upload_with_metadata(
+    filename, content, column_mapping, custom_fields, db, part_type,
+    include_inventory_parts,
+) -> tuple[pd.DataFrame, dict]:
     if not content:
         raise HTTPException(400, "Uploaded file is empty")
     if len(content) > settings.max_upload_bytes:
         raise HTTPException(413, f"Uploaded file exceeds the configured upload limit of {settings.max_upload_bytes} bytes")
-    df = _parse_upload_dataframe(file.filename, content)
+    df = _parse_upload_dataframe(filename, content)
     source_df = df
     custom_fields = custom_fields or []
     custom_field_keys = {field.field_key for field in custom_fields}
