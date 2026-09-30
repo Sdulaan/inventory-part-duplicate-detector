@@ -94,8 +94,50 @@ def _words(text: str) -> set[str]:
     return set(text.split())
 
 
-def _find_size(normalized: str) -> list[str]:
-    found = []
+SIZE_CODES = {
+    "xs": "extra small",
+    "s": "small",
+    "m": "medium",
+    "l": "large",
+    "xl": "extra large",
+    "xxl": "extra extra large",
+}
+
+
+def _find_size_codes(raw: str) -> list[str]:
+    """Size letters only when explicitly marked, e.g. "(S)" or a trailing "-L"."""
+    codes = "|".join(sorted(SIZE_CODES, key=len, reverse=True))
+    found = re.findall(rf"\(\s*({codes})\s*\)", raw)
+    trailing = re.search(rf"[-/]\s*({codes})\s*$", raw.strip())
+    if trailing:
+        found.append(trailing.group(1))
+    return [SIZE_CODES[code] for code in found]
+
+
+_WRITTEN_NUMBER = re.compile(r"\d+(?:[.,]\d+)?(?:/\d+(?:[.,]\d+)?)?")
+
+
+def _written_number(value: str) -> str:
+    return str(int(value)) if value.isdigit() else value
+
+
+def _find_numeric_variant(raw: str, normalized: str) -> tuple[list[str], list[str]]:
+    """Return the ordered numbers, as written, and the text around them.
+
+    Two descriptions with the same surrounding text but different numbers
+    (40x60 vs 60x60, 10' vs 20', M10 vs M12) describe different items.
+    """
+    numbers = _WRITTEN_NUMBER.findall(raw)
+    if not numbers:
+        return [], []
+    base = re.sub(r"\d+", "#", normalized).strip()
+    if not re.search(r"[a-z]", base):
+        return [], []
+    return [" ".join(_written_number(number) for number in numbers)], [base]
+
+
+def _find_size(normalized: str, raw: str = "") -> list[str]:
+    found = _find_size_codes(raw)
     protected = normalized
     for phrase in ("extra small", "extra large"):
         if re.search(rf"\b{re.escape(phrase)}\b", protected):
@@ -220,10 +262,11 @@ def extract_variant_attributes(description) -> dict[str, list[str]]:
     normalized = normalize_description(description)
     words = _words(normalized)
     trailing_suffix, trailing_base = _find_trailing_variant(description)
+    numeric_values, numeric_base = _find_numeric_variant(raw, normalized)
     return {
         "FILTER_FUNCTION": sorted(words & FILTER_FUNCTION),
         "COLOR": sorted(words & COLOR),
-        "SIZE": _find_size(normalized),
+        "SIZE": _find_size(normalized, raw),
         "TYPE_OR_GRADE": _find_type_or_grade(normalized),
         "ELECTRICAL_RATING": _find_electrical(raw, normalized),
         "DIMENSION": _find_dimensions(raw, normalized),
@@ -242,6 +285,8 @@ def extract_variant_attributes(description) -> dict[str, list[str]]:
         "STRUCTURAL_ROLE": _find_structural_roles(normalized),
         "TRAILING_VARIANT_SUFFIX": trailing_suffix,
         "TRAILING_VARIANT_BASE": trailing_base,
+        "NUMERIC_VARIANT_VALUES": numeric_values,
+        "NUMERIC_VARIANT_BASE": numeric_base,
     }
 
 
@@ -268,7 +313,62 @@ def find_critical_mismatches(attributes_a: dict, attributes_b: dict) -> list[dic
             "values_a": sorted(suffix_a),
             "values_b": sorted(suffix_b),
         })
+    if not mismatches:
+        numeric = _numeric_variant_mismatch(attributes_a, attributes_b)
+        if numeric:
+            mismatches.append(numeric)
     return mismatches
+
+
+def _numeric_variant_numbers(
+    attributes_a: dict, attributes_b: dict
+) -> tuple[list[str], list[str]] | None:
+    """Numbers of two descriptions whose surrounding wording is identical."""
+    base_a = attributes_a.get("NUMERIC_VARIANT_BASE", [])
+    base_b = attributes_b.get("NUMERIC_VARIANT_BASE", [])
+    values_a = attributes_a.get("NUMERIC_VARIANT_VALUES", [])
+    values_b = attributes_b.get("NUMERIC_VARIANT_VALUES", [])
+    if not (base_a and base_a == base_b and values_a and values_b):
+        return None
+    return values_a[0].split(), values_b[0].split()
+
+
+def _numeric_variant_mismatch(attributes_a: dict, attributes_b: dict) -> dict | None:
+    """Same wording, different numbers: report only the numbers that differ."""
+    numbers = _numeric_variant_numbers(attributes_a, attributes_b)
+    if numbers is None:
+        return None
+    numbers_a, numbers_b = numbers
+    if sorted(numbers_a) == sorted(numbers_b):
+        return None  # same numbers in another order: see find_reordered_numbers
+    differing = [(a, b) for a, b in zip(numbers_a, numbers_b) if a != b]
+    if len(numbers_a) != len(numbers_b) or not differing:
+        differing = [(" x ".join(numbers_a), " x ".join(numbers_b))]
+    return {
+        "group": "NUMERIC_VARIANT",
+        "label": "number (size, length or rating)",
+        "values_a": [a for a, _b in differing],
+        "values_b": [b for _a, b in differing],
+    }
+
+
+def find_reordered_numbers(attributes_a: dict, attributes_b: dict) -> dict | None:
+    """Same wording and numbers in a different order, e.g. 20x30 vs 30x20.
+
+    This may be one item written two ways, so it is borderline, not a conflict.
+    """
+    numbers = _numeric_variant_numbers(attributes_a, attributes_b)
+    if numbers is None:
+        return None
+    numbers_a, numbers_b = numbers
+    if numbers_a == numbers_b or sorted(numbers_a) != sorted(numbers_b):
+        return None
+    return {
+        "group": "REORDERED_NUMBERS",
+        "label": "number order",
+        "values_a": [" x ".join(numbers_a)],
+        "values_b": [" x ".join(numbers_b)],
+    }
 
 
 def find_identity_role_mismatches(attributes_a: dict, attributes_b: dict) -> list[dict]:

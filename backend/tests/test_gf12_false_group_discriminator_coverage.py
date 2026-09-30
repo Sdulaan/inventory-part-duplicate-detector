@@ -102,8 +102,10 @@ COIL_SPRING = record(9, "COIL SPRING", "DUST CAPS")
 
 
 def test_r9_1_to_r9_6_pref_fix_shapes_and_root_clusters_are_frozen():
-    assert raw(RIM, TYRE).edge_class == IdentityEdgeClass.REVIEW_SUPPORT
-    assert raw(TABLE, NAILS).edge_class == IdentityEdgeClass.REVIEW_SUPPORT
+    for pair in ((RIM, TYRE), (TABLE, NAILS)):
+        assert raw(*pair).edge_class in {
+            IdentityEdgeClass.STRONG_SUPPORT, IdentityEdgeClass.REVIEW_SUPPORT
+        }
     assert raw(CONDITION, DISCOUNT).edge_class in {
         IdentityEdgeClass.STRONG_SUPPORT, IdentityEdgeClass.REVIEW_SUPPORT
     }

@@ -171,24 +171,24 @@ def test_four_case_duplicate_condition_semantics_are_observed_without_providers(
     assert cases["contract"]["unassigned"] == ["C"]
     assert cases["contract_uom"]["unassigned"] == ["C"]
     expected_scores = {
-        "none": dict.fromkeys(all_pairs, 85.71),
+        "none": dict.fromkeys(all_pairs, 90.0),
         "contract": {
-            "AB": 95.71,
-            "AD": 95.71,
-            "BD": 95.71,
+            "AB": 95.0,
+            "AD": 95.0,
+            "BD": 95.0,
         },
         "uom": {
-            "AB": 95.71,
-            "AC": 95.71,
-            "AD": 75.71,
-            "BC": 95.71,
-            "BD": 75.71,
-            "CD": 75.71,
+            "AB": 95.0,
+            "AC": 95.0,
+            "AD": 80.0,
+            "BC": 95.0,
+            "BD": 80.0,
+            "CD": 80.0,
         },
         "contract_uom": {
-            "AB": 95.71,
-            "AD": 85.71,
-            "BD": 85.71,
+            "AB": 95.0,
+            "AD": 90.0,
+            "BD": 90.0,
         },
     }
     assert {

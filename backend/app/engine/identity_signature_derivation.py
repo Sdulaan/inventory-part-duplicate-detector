@@ -57,7 +57,9 @@ _ROLE_GROUPS = frozenset({
 })
 _CRITICAL_ATTRIBUTE_GROUPS = frozenset({"ELECTRICAL_RATING", "DIMENSION"})
 _MODEL_GROUPS = frozenset({"TYPE_OR_GRADE"})
-_NON_SIGNATURE_VARIANT_GROUPS = frozenset({"TRAILING_VARIANT_BASE"})
+_NON_SIGNATURE_VARIANT_GROUPS = frozenset({
+    "TRAILING_VARIANT_BASE", "NUMERIC_VARIANT_VALUES", "NUMERIC_VARIANT_BASE",
+})
 _UNRESOLVED_STOPWORDS = frozenset({
     "a", "an", "and", "description", "for", "grade", "item", "master",
     "material", "model", "of", "part", "the", "type",

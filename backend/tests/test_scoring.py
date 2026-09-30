@@ -347,3 +347,80 @@ def test_hsn_sac_mismatch_blocks_otherwise_similar_candidate():
     assert result["final_score"] < 60
     assert result["confidence_level"] == "IGNORE"
     assert "HSN_SAC_CODE differs" in result["explanation"]
+
+
+def test_identical_records_score_the_prediction_cap_whatever_the_part_numbers():
+    # Customer data: duplicates always carry different part numbers.
+    pairs = [
+        ("332175", "322834", "Viola x will. Mix 6-Pack"),
+        ("328769", "322834", "Viola x will. Mix 6-Pack"),
+        ("322585", "330390", "Salvia hybrid Rockin' Lavender"),
+        ("326231", "331363", "Nemesia Mix"),
+        ("328199", "332043", "Calluna vulgaris Sunset 'Zoe'"),
+    ]
+    for left, right, description in pairs:
+        result = score_candidate(
+            rec(left, description), rec(right, description), ["CONTRACT", "UNIT_MEAS"]
+        )
+        assert result["final_score"] == 95.0
+        assert result["business_status"] == "LIKELY_DUPLICATE"
+
+
+def test_descriptions_differing_only_by_a_number_are_different_items():
+    cases = [
+        ("Filtmatta 40x60cm 100st/bunt", "Filtmatta 60x60cm 100st/bunt", ["40"], ["60"]),
+        (
+            "Aluminium bar (SPR-110) 70mm Bronze 10'",
+            "Aluminium bar (SPR-110) 70mm Bronze 20'",
+            ["10"], ["20"],
+        ),
+        ("Hex bolt M10 zinc", "Hex bolt M12 zinc", ["10"], ["12"]),
+    ]
+    for left, right, values_a, values_b in cases:
+        result = score_candidate(
+            rec("C-01-01-05-0485", left), rec("C-01-01-05-0486", right),
+            ["CONTRACT", "UNIT_MEAS"],
+        )
+        assert result["final_score"] == 55.0
+        assert result["business_status"] == "RELATED_BUT_NOT_DUPLICATE"
+        assert result["rejection_reason"] == "NUMERIC_VARIANT_MISMATCH"
+        mismatch = result["critical_mismatches"][0]
+        assert (mismatch["values_a"], mismatch["values_b"]) == (values_a, values_b)
+
+
+def test_marked_size_codes_are_size_mismatches_but_bare_letters_are_not():
+    for left, right in (
+        ("Viola x will. Mix 6-Pack (S)", "Viola x will. Mix 6-Pack (L)"),
+        ("Nitrile gloves - S", "Nitrile gloves - L"),
+    ):
+        result = score_candidate(rec("1", left), rec("2", right), ["CONTRACT", "UNIT_MEAS"])
+        assert result["rejection_reason"] == "SIZE_MISMATCH"
+        assert "small vs large" in result["explanation"]
+    hook = score_candidate(rec("1", "S-hook zinc"), rec("2", "S-hook zinc"), ["CONTRACT", "UNIT_MEAS"])
+    assert hook["critical_mismatches"] == []
+    assert hook["final_score"] == 95.0
+
+
+def test_number_mismatch_explanation_shows_numbers_as_written():
+    for left, right, shown in (
+        ("Cable 2.5mm2", "Cable 1.5mm2", "2.5 vs 1.5"),
+        ('Hose 1/2"', 'Hose 3/4"', "1/2 vs 3/4"),
+    ):
+        result = score_candidate(rec("1", left), rec("2", right), ["CONTRACT", "UNIT_MEAS"])
+        assert result["rejection_reason"] == "NUMERIC_VARIANT_MISMATCH"
+        assert shown in result["explanation"]
+
+
+def test_reordered_dimensions_are_borderline_review_not_rejected():
+    from app.engine.identity_edge import IdentityEdgeClass, classify_identity_edge
+
+    result = score_candidate(
+        rec("294636", "Filtmatta 20x30cm"), rec("294637", "Filtmatta 30x20cm"),
+        ["CONTRACT", "UNIT_MEAS"],
+    )
+    assert result["final_score"] == 75.0
+    assert result["business_status"] == "POSSIBLE_DUPLICATE_REVIEW"
+    assert result["rejection_reason"] == "REORDERED_NUMBERS"
+    assert result["critical_mismatches"] == []
+    assert "different order: 20 x 30 vs 30 x 20" in result["explanation"]
+    assert classify_identity_edge(result).edge_class == IdentityEdgeClass.REVIEW_SUPPORT

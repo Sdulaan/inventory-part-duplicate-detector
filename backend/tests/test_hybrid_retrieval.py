@@ -92,7 +92,7 @@ def test_feature_disabled_preserves_standard_candidate_output(db):
     rows = db.query(DuplicateCandidate).filter_by(scan_id=scan.id).all()
     assert len(rows) == 1
     assert db.query(HybridRetrievalRun).filter_by(scan_id=scan.id).count() == 0
-    assert rows[0].similarity_score == 85.0
+    assert rows[0].similarity_score == 95.0
 
 
 def test_standard_candidates_are_not_duplicated_by_hybrid(db):

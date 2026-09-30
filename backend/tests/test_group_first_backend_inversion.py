@@ -53,7 +53,7 @@ from test_identity_read_contracts import all_records, v2_source
 def review_records():
     return pd.DataFrame([
         {"PART_NO": "A", "DESCRIPTION": "SKF 6205 BEARING", "CONTRACT": "S1", "UNIT_MEAS": "PCS"},
-        {"PART_NO": "B", "DESCRIPTION": "SKF BEARING 6205", "CONTRACT": "S1", "UNIT_MEAS": "PCS"},
+        {"PART_NO": "B", "DESCRIPTION": "SKF BALL BEARING 6205", "CONTRACT": "S1", "UNIT_MEAS": "PCS"},
     ])
 
 
