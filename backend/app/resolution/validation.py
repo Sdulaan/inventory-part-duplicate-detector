@@ -28,6 +28,14 @@ from app.resolution.contracts import (
     TARGETED_EVIDENCE_CONTRACT_V2,
     TARGETED_EVIDENCE_CONTRACT_VERSION,
 )
+from app.resolution.input_index import (
+    evidence_lookup,
+    human_cannot_links,
+    neighborhood_references,
+    record_ids,
+    record_references,
+    records_by_id,
+)
 from app.resolution.fingerprints import (
     deferred_identity_work_unit_fingerprint,
     identity_conflict_fingerprint,
@@ -339,23 +347,7 @@ def _evidence_lookup(
     resolution_input: IdentityResolutionInput,
     targeted_results: tuple[TargetedEvidenceResult, ...] = (),
 ) -> dict[tuple[int, int], tuple[IdentityEdgeClass, bool]]:
-    lookup = {
-        (edge.record_id_1, edge.record_id_2): (edge.edge_class, edge.generic_only)
-        for edge in resolution_input.machine_evidence_edges
-    }
-    for result in targeted_results:
-        request = result.request
-        lookup[(request.record_id_1, request.record_id_2)] = (
-            result.edge_class, result.generic_only
-        )
-    for constraint in resolution_input.human_constraints:
-        pair = (constraint.record_id_1, constraint.record_id_2)
-        current = lookup.get(pair)
-        if constraint.constraint_type == IdentityResolutionConstraintType.CANNOT_LINK:
-            lookup[pair] = (IdentityEdgeClass.CANNOT_LINK, False)
-        elif not current or current[0] != IdentityEdgeClass.CANNOT_LINK:
-            lookup[pair] = (IdentityEdgeClass.STRONG_SUPPORT, False)
-    return lookup
+    return evidence_lookup(resolution_input, targeted_results)
 
 
 def validate_group_hypothesis(
@@ -366,7 +358,7 @@ def validate_group_hypothesis(
 ) -> None:
     _require(group.scan_id == resolution_input.scan_id, "group hypothesis crosses scans")
     _canonical_ids(group.member_record_ids, "accepted group", minimum=2)
-    known = {record.record_id for record in resolution_input.canonical_records}
+    known = record_ids(resolution_input)
     _require(set(group.member_record_ids) <= known,
              "accepted group references an unknown canonical record")
     _nonblank(group.hypothesis_id, "hypothesis_id")
@@ -381,11 +373,8 @@ def validate_group_hypothesis(
     _require(len(group.member_record_references) == len(group.member_record_ids),
              "group record references do not align with member IDs")
     _unique_texts(group.member_record_references, "group member record references")
-    expected_refs = tuple(
-        next(record.record_ref_key for record in resolution_input.canonical_records
-             if record.record_id == record_id)
-        for record_id in group.member_record_ids
-    )
+    references = record_references(resolution_input)
+    expected_refs = tuple(references[record_id] for record_id in group.member_record_ids)
     _require(group.member_record_references == expected_refs,
              "group member references do not match the canonical catalog")
     possible = len(group.member_record_ids) * (len(group.member_record_ids) - 1) // 2
@@ -422,21 +411,15 @@ def validate_group_hypothesis(
     lookup = _evidence_lookup(resolution_input, targeted_results)
     internal_pairs = tuple(combinations(group.member_record_ids, 2))
     if CONTRACT_GROUP_CONSTRAINT in resolution_input.request_scoped_group_constraints:
-        records_by_id = {
-            record.record_id: record for record in resolution_input.canonical_records
-        }
+        by_id = records_by_id(resolution_input)
         _require(
             contract_group_is_compatible(
-                records_by_id[item] for item in group.member_record_ids
+                by_id[item] for item in group.member_record_ids
             ),
             "accepted group violates request-scoped CONTRACT equality",
         )
     internal = [lookup.get(pair) for pair in internal_pairs]
-    human_cannot = {
-        (item.record_id_1, item.record_id_2)
-        for item in resolution_input.human_constraints
-        if item.constraint_type == IdentityResolutionConstraintType.CANNOT_LINK
-    }
+    human_cannot = human_cannot_links(resolution_input).keys()
     _require(not (set(internal_pairs) & human_cannot),
              "accepted group contains human CANNOT_LINK evidence")
     _require(not any(item and item[0] == IdentityEdgeClass.CANNOT_LINK for item in internal),
@@ -459,9 +442,7 @@ def validate_group_hypothesis(
         ),
         "group evidence summary does not match internal evidence classes",
     )
-    known_neighborhoods = {
-        item.neighborhood_reference for item in resolution_input.identity_neighborhoods
-    }
+    known_neighborhoods = neighborhood_references(resolution_input)
     _require(bool(group.source_neighborhood_references),
              "accepted group requires source neighborhood traceability")
     _canonical_texts(group.source_neighborhood_references,

@@ -22,6 +22,8 @@ import {
 import {
   formatElapsed,
   processingGuidance,
+  scanJobOutcome,
+  scanJobProgressLabel,
   scanRequestError,
   validationContextKey,
 } from '../utils/productJourneyUi'
@@ -43,6 +45,8 @@ const FALLBACK_FIELDS = [
 
 const REVIEW_STRICTNESS = 75
 const SCAN_MODE = 'SAME_SITE_DUPLICATE'
+const SCAN_POLL_MS = 2000
+const MAX_FAILED_POLLS = 15
 
 export default function NewScan() {
   const [builtInFields, setBuiltInFields] = useState([
@@ -69,7 +73,14 @@ export default function NewScan() {
   const fileGeneration = useRef(0)
   const scanRequestActive = useRef(false)
   const completionRouted = useRef(false)
+  const pageMounted = useRef(true)
+  const [scanJob, setScanJob] = useState(null)
   const nav = useNavigate()
+
+  useEffect(() => {
+    pageMounted.current = true
+    return () => { pageMounted.current = false }
+  }, [])
 
   const refreshCustomFields = () => api.listCustomFields().then(setCustomFields).catch(() => {})
 
@@ -167,19 +178,35 @@ export default function NewScan() {
     )) return setError({ title: 'Current validation required', message: 'Validate the current file and mapping successfully before running the scan.' })
     scanRequestActive.current = true
     completionRouted.current = false
-    setBusy('scan'); setError(null)
+    setBusy('scan'); setError(null); setScanJob(null)
     try {
-      const r = await api.postForm('/api/scans/upload', form())
-      if (!Number.isInteger(Number(r?.scan_id)) || Number(r.scan_id) <= 0) {
-        setError(scanRequestError('unexpected', 'scan'))
-        return
-      }
-      if (!completionRouted.current) {
-        completionRouted.current = true
-        nav(`/scans/${r.scan_id}`)
+      let job = await api.postForm('/api/scans/upload-async', form())
+      let failedPolls = 0
+      while (pageMounted.current) {
+        setScanJob(job)
+        const outcome = scanJobOutcome(job)
+        if (outcome.kind === 'completed') {
+          if (!completionRouted.current) {
+            completionRouted.current = true
+            nav(`/scans/${outcome.scanId}`)
+          }
+          return
+        }
+        if (outcome.kind === 'failed') {
+          setError(scanRequestError(outcome.status, 'scan'))
+          return
+        }
+        await new Promise(resolve => window.setTimeout(resolve, SCAN_POLL_MS))
+        try {
+          job = await api.get(`/api/scans/jobs/${encodeURIComponent(job.job_id)}`)
+          failedPolls = 0
+        } catch (e) {
+          // A missing job cannot come back; brief network errors can.
+          if (e.status === 404 || ++failedPolls >= MAX_FAILED_POLLS) throw e
+        }
       }
     } catch (e) { setError(scanRequestError(e.status, 'scan')) }
-    finally { scanRequestActive.current = false; setBusy('') }
+    finally { scanRequestActive.current = false; setBusy(''); setScanJob(null) }
   }
 
   const updateMapping = (canonicalField, sourceColumn) => {
@@ -304,8 +331,8 @@ export default function NewScan() {
       {!validation && <p className="validation-guidance">Run Scan becomes available after the current CSV and mapping pass validation.</p>}
       {validation && !validationIsCurrent && <p className="warning" role="status"><b>Validation is out of date.</b> The file, selected conditions, mapping, or privacy setting changed. Validate again before running the scan.</p>}
       {busy === 'scan' && <section className="panel processing-state" role="status" aria-live="polite" aria-busy="true">
-        <p className="eyebrow">Request active</p><h2>Processing inventory…</h2>
-        <p>The scan is still running.</p><p><b>Elapsed time: {formatElapsed(elapsedSeconds)}</b></p>
+        <p className="eyebrow">Scan running</p><h2>Processing inventory…</h2>
+        <p><b>{scanJob ? scanJobProgressLabel(scanJob) : 'Uploading file'}</b></p><p><b>Elapsed time: {formatElapsed(elapsedSeconds)}</b></p>
         <p>{processingGuidance(elapsedSeconds)}</p>
       </section>}
       {validation && <section className="panel" aria-live="polite"><h2>{validation.valid ? 'Validation passed' : 'Validation failed'} <span className={validation.valid ? 'badge HIGH' : 'badge LOW'}>{validation.valid ? 'Ready' : 'Blocked'}</span></h2>{validation.valid ? <p>The current CSV and mapping are supported. Run Scan is available while this validation remains current.</p> : <p>Review the warnings and required field mapping below, then validate again.</p>}<div className="metrics"><span>{validation.record_count} records</span><span>{validation.empty_descriptions_count} empty descriptions</span><span>{validation.duplicate_part_number_count} repeated part rows</span><span>{validation.warnings.length} warnings</span></div>{validation.privacy && <div className="security-summary"><b>Security transparency</b><span>Raw CSV stored: {validation.privacy.raw_csv_stored ? 'Yes' : 'No'}</span><span>External AI used: {validation.privacy.external_ai_used ? 'Yes' : 'No'}</span><span>Local processing: {validation.privacy.local_processing_only ? 'Yes' : 'No'}</span><small>SHA-256: {validation.privacy.file_sha256}</small></div>}{validation.warnings.map((w, i) => <p className="warning" key={i}>{w.message}</p>)}</section>}
