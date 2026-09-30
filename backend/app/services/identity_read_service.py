@@ -22,6 +22,7 @@ from app.identity_read.contracts import (
 )
 from app.repositories.identity_read_repository import IdentityReadRepository
 from app.services.canonical_record_service import load_scan_record_catalog
+from app.services.read_cache import identity_snapshot_cache
 
 
 class IdentityReadError(RuntimeError):
@@ -182,17 +183,38 @@ class IdentityReadService:
         decision, orchestration, v1, v2 = self._decision_and_rows(scan_id)
         if decision.authority_status != IdentityReadAuthorityStatus.READY:
             self._raise_decision(decision)
-        records = tuple(_source_record(item) for item in load_scan_record_catalog(self.db, scan_id))
-        try:
-            if decision.projection_contract == IdentityReadProjectionContract.G2_V1:
+        if decision.projection_contract == IdentityReadProjectionContract.G2_V1:
+            records = self._records(scan_id)
+            try:
                 return adapt_g2_v1_to_identity_read_snapshot(
                     self._v1_source(v1, records), records,
                     source_orchestration_run_id=orchestration.id if orchestration else None,
                 )
-            from app.services.g2_v2_projection_service import (
-                load_persisted_g2_v2_manifest,
-            )
+            except (ValueError, TypeError, KeyError) as exc:
+                raise IdentityReadAuthorityInconsistent(
+                    "SELECTED_PROJECTION_INVALID"
+                ) from exc
+        # A completed G2-v2 projection is immutable; its stored fingerprints
+        # and completion time identify exactly what this snapshot is built from.
+        key = (
+            "G2_V2", scan_id, orchestration.id, v2.id, v2.manifest_fingerprint,
+            v2.source_manifest_fingerprint, str(v2.completed_at),
+            v2.canonical_record_count,
+        )
+        return identity_snapshot_cache.get_or_build(
+            key, lambda: self._build_g2_v2_snapshot(scan_id, orchestration, v2)
+        )
 
+    def _records(self, scan_id: int):
+        return tuple(_source_record(item) for item in load_scan_record_catalog(self.db, scan_id))
+
+    def _build_g2_v2_snapshot(self, scan_id, orchestration, v2):
+        from app.services.g2_v2_projection_service import (
+            load_persisted_g2_v2_manifest,
+        )
+
+        records = self._records(scan_id)
+        try:
             manifest = load_persisted_g2_v2_manifest(self.db, v2.id)
             return adapt_g2_v2_to_identity_read_snapshot(
                 manifest, records, source_projection_run_id=v2.id,

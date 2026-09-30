@@ -6,6 +6,7 @@ from app.resolution.pair_explanation import (
     project_targeted_pair_explanation,
 )
 from app.services.identity_resolution_service import load_persisted_resolution_result
+from app.services.read_cache import targeted_explanation_cache
 
 
 def load_pair_explanation_sources(
@@ -26,12 +27,19 @@ def load_pair_explanation_sources(
         IdentityEvidenceEdgeSnapshot.evidence_run_id == run.evidence_run_id,
         IdentityEvidenceEdgeSnapshot.evidence_fingerprint.in_(needed),
     ).all()
-    targeted = load_persisted_resolution_result(
-        db, run.id
-    ).targeted_evidence_results
+    targeted = targeted_explanation_cache.get_or_build(
+        (
+            "targeted-explanations", run.id, run.input_fingerprint,
+            run.configuration_fingerprint, run.status,
+        ),
+        lambda: tuple(
+            (result.evidence_fingerprint, project_targeted_pair_explanation(result))
+            for result in load_persisted_resolution_result(
+                db, run.id
+            ).targeted_evidence_results
+        ),
+    )
     output = {item.evidence_fingerprint: item for item in proposal}
-    for result in targeted:
-        output.setdefault(
-            result.evidence_fingerprint, project_targeted_pair_explanation(result)
-        )
+    for fingerprint, explanation in targeted:
+        output.setdefault(fingerprint, explanation)
     return output
