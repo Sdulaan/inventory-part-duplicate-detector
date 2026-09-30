@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from collections import Counter
 from datetime import datetime, timezone
@@ -77,6 +78,9 @@ from app.services.scan_orchestration_service import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class ScanRunner:
     def __init__(self, db: Session, configuration=None):
         self.db = db
@@ -104,7 +108,7 @@ class ScanRunner:
             selected_fields=selected_fields,
         )
 
-    def run(self, df: pd.DataFrame, scan_name: str, selected_fields: list[str], threshold: float, source_type="CSV", sensitive_mode: bool = True, scan_mode: str = "SAME_SITE_DUPLICATE", orchestration_mode: ScanOrchestrationMode | str | None = None, part_type: str = "INVENTORY", strict_custom_fields: list[dict] | None = None, custom_fields_used: list[dict] | None = None):
+    def run(self, df: pd.DataFrame, scan_name: str, selected_fields: list[str], threshold: float, source_type="CSV", sensitive_mode: bool = True, scan_mode: str = "SAME_SITE_DUPLICATE", orchestration_mode: ScanOrchestrationMode | str | None = None, part_type: str = "INVENTORY", strict_custom_fields: list[dict] | None = None, custom_fields_used: list[dict] | None = None, on_stage=None):
         scan_mode = normalize_scan_mode(scan_mode)
         contract_equality_required = "CONTRACT" in {
             str(field).strip().upper() for field in selected_fields
@@ -153,6 +157,11 @@ class ScanRunner:
             nonlocal current_stage, current_stage_started_at
             current_stage = stage
             current_stage_started_at = datetime.now(timezone.utc)
+            if on_stage is not None:
+                try:
+                    on_stage(stage.value)
+                except Exception:
+                    logger.warning("scan stage progress callback failed", exc_info=True)
 
         def record_stage(
             stage,

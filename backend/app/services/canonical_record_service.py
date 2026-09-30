@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Iterable
 
 import pandas as pd
@@ -114,6 +115,12 @@ def retrieval_order_key(
         raise ValueError("retrieval ordering requires an integer source row ordinal") from exc
     if ordinal < 0:
         raise ValueError("retrieval ordering requires a non-negative source row ordinal")
+    return _retrieval_order_digest(fingerprint, ordinal)
+
+
+@lru_cache(maxsize=262_144)
+def _retrieval_order_digest(fingerprint: str, ordinal: int) -> str:
+    # Resolution reads every record's key once per work unit; hashing is pure.
     payload = {
         "contract_version": RETRIEVAL_ORDER_KEY_VERSION,
         "source_record_fingerprint": fingerprint,

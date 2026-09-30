@@ -33,6 +33,15 @@ from app.resolution.contracts import (
     TargetedEvidenceResult,
 )
 from app.resolution.fingerprints import fingerprint_payload
+from app.resolution.input_index import (
+    evidence_lookup,
+    human_cannot_links,
+    machine_edges_by_pair,
+    machine_lookup,
+    record_references,
+    records_by_id,
+    semantic_record_keys,
+)
 from app.resolution.validation import (
     IdentityResolutionValidationError,
     targeted_result_from_evaluation,
@@ -117,10 +126,7 @@ def _pair(left: int, right: int) -> tuple[int, int]:
 
 def _semantic_record_keys(value: IdentityResolutionInput) -> dict[int, str]:
     """Map persistence IDs to scan-independent record ordering identities."""
-    return {
-        record.record_id: record.retrieval_order_key
-        for record in value.canonical_records
-    }
+    return semantic_record_keys(value)
 
 
 def _semantic_member_key(
@@ -213,27 +219,11 @@ def _work_units(value: IdentityResolutionInput) -> tuple[_WorkUnit, ...]:
 
 
 def _machine_lookup(value):
-    return {
-        (edge.record_id_1, edge.record_id_2): (edge.edge_class, edge.generic_only)
-        for edge in value.machine_evidence_edges
-    }
+    return machine_lookup(value)
 
 
 def _effective_lookup(value, targeted_results):
-    lookup = _machine_lookup(value)
-    for result in targeted_results:
-        request = result.request
-        lookup[(request.record_id_1, request.record_id_2)] = (
-            result.edge_class, result.generic_only
-        )
-    for constraint in value.human_constraints:
-        pair = (constraint.record_id_1, constraint.record_id_2)
-        current = lookup.get(pair)
-        if constraint.constraint_type == IdentityResolutionConstraintType.CANNOT_LINK:
-            lookup[pair] = (IdentityEdgeClass.CANNOT_LINK, False)
-        elif not current or current[0] != IdentityEdgeClass.CANNOT_LINK:
-            lookup[pair] = (IdentityEdgeClass.STRONG_SUPPORT, False)
-    return lookup
+    return evidence_lookup(value, targeted_results)
 
 
 def _positive_adjacency(member_ids, lookup):
@@ -275,7 +265,7 @@ def _target_reason(left, right, member_ids, lookup):
 
 
 def _targeted_requests(value, unit, lookup):
-    references = {record.record_id: record.record_ref_key for record in value.canonical_records}
+    references = record_references(value)
     semantic_keys = _semantic_record_keys(value)
     requests = []
     for left, right in combinations(unit.member_ids, 2):
@@ -356,10 +346,8 @@ def _bridge_summary(member_ids, lookup):
 def _build_group(value, unit, members, lookup, targeted_results):
     members = tuple(sorted(members))
     if CONTRACT_GROUP_CONSTRAINT in value.request_scoped_group_constraints:
-        records_by_id = {
-            record.record_id: record for record in value.canonical_records
-        }
-        if not contract_group_is_compatible(records_by_id[item] for item in members):
+        by_id = records_by_id(value)
+        if not contract_group_is_compatible(by_id[item] for item in members):
             return None
     internal = [lookup.get(pair) for pair in combinations(members, 2)]
     if any(item is None for item in internal):
@@ -426,9 +414,7 @@ def _build_group(value, unit, members, lookup, targeted_results):
         discovery_degraded=unit.degraded,
         source_neighborhood_count=len(unit.neighborhood_references),
     )
-    references = {
-        record.record_id: record.record_ref_key for record in value.canonical_records
-    }
+    references = record_references(value)
     member_references = tuple(references[member] for member in members)
     hypothesis_reference = "gf5b-" + fingerprint_payload("hypothesis-reference", {
         "scan_id": value.scan_id,
@@ -599,7 +585,7 @@ def _artifact_reference(kind, payload):
 
 
 def _conflict(value, unit, conflict_type, involved_ids, evidence_references, summary):
-    references = {record.record_id: record.record_ref_key for record in value.canonical_records}
+    references = record_references(value)
     involved_ids = tuple(sorted(set(involved_ids)))
     involved_refs = tuple(references[item] for item in involved_ids)
     artifact = IdentityConflict(
@@ -621,7 +607,7 @@ def _conflict(value, unit, conflict_type, involved_ids, evidence_references, sum
 
 
 def _deferred(value, unit, reason, summary, member_ids=None):
-    references = {record.record_id: record.record_ref_key for record in value.canonical_records}
+    references = record_references(value)
     member_ids = tuple(sorted(member_ids or unit.member_ids))
     member_refs = tuple(references[item] for item in member_ids)
     artifact = DeferredIdentityWorkUnit(
@@ -647,11 +633,7 @@ def _constraint_conflicts(value, unit):
         if item.constraint_type == IdentityResolutionConstraintType.MUST_LINK
         and item.record_id_1 in unit.member_ids and item.record_id_2 in unit.member_ids
     ]
-    cannot_links = {
-        (item.record_id_1, item.record_id_2): item
-        for item in value.human_constraints
-        if item.constraint_type == IdentityResolutionConstraintType.CANNOT_LINK
-    }
+    cannot_links = human_cannot_links(value)
     conflicts = []
     direct_authority = []
     for item in must_links:
@@ -701,15 +683,8 @@ def _constraint_conflicts(value, unit):
 
 
 def _protected_conflict(value, unit, lookup, targeted_results=()):
-    machine_by_pair = {
-        (edge.record_id_1, edge.record_id_2): edge
-        for edge in value.machine_evidence_edges
-    }
-    human_by_pair = {
-        (item.record_id_1, item.record_id_2): item
-        for item in value.human_constraints
-        if item.constraint_type == IdentityResolutionConstraintType.CANNOT_LINK
-    }
+    machine_by_pair = machine_edges_by_pair(value)
+    human_by_pair = human_cannot_links(value)
     targeted_by_pair = {
         (item.request.record_id_1, item.request.record_id_2): item
         for item in targeted_results
@@ -873,7 +848,7 @@ def resolve_identity_groups(
         record.record_id for record in value.canonical_records
         if record.record_id not in accepted_members
     )
-    references = {record.record_id: record.record_ref_key for record in value.canonical_records}
+    references = record_references(value)
     metrics = IdentityResolutionMetrics(
         source_record_count=len(value.canonical_records),
         accepted_group_count=len(accepted),

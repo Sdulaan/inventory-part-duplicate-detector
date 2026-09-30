@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.database import get_db
 from app.core.config import Settings
@@ -53,6 +53,7 @@ from app.orchestration.contracts import (
 )
 from app.services.scan_service import get_scan, get_scan_candidates, get_scan_rejections, get_scan_warnings, list_scans, run_scan
 from app.services.privacy_service import security_transparency
+from app.services.scan_jobs import ScanJobRegistry, ThreadedBackgroundTasks, get_scan_jobs
 from app.services.validation_service import parse_column_mapping, parse_selected_fields, read_csv_upload_with_metadata, validate_dataframe
 from app.repositories.custom_field_repository import CustomFieldRepository
 
@@ -281,8 +282,8 @@ async def validate_only(file: UploadFile = File(...), selected_fields: str = For
     return result
 
 
-@router.post("/upload")
-async def upload(background_tasks: BackgroundTasks, file: UploadFile = File(...), selected_fields: str = Form("[]"), column_mapping: str = Form("{}"), threshold: float = Form(DEFAULT_REVIEW_STRICTNESS), scan_name: str = Form("Inventory duplicate scan"), sensitive_mode: bool = Form(True), scan_mode: str = Form("SAME_SITE_DUPLICATE"), part_type: str = Form(DEFAULT_PART_TYPE), include_inventory_parts: bool = Form(True), product_authority: ProductScanAuthority = Form(ProductScanAuthority.CURRENT_PRODUCT), db: Session = Depends(get_db), configuration: Settings = Depends(get_llm_settings), triage_scheduler: LlmTriageScheduler = Depends(get_llm_triage_scheduler)):
+async def _prepare_upload(db, file, selected_fields, column_mapping, threshold, sensitive_mode, part_type, include_inventory_parts):
+    """Read and validate an upload; rejections are raised before any scan starts."""
     if threshold < 0 or threshold > 100: raise HTTPException(400, "threshold must be between 0 and 100")
     if part_type not in PART_TYPES: part_type = DEFAULT_PART_TYPE
     custom_fields = _load_custom_fields(db)
@@ -301,18 +302,71 @@ async def upload(background_tasks: BackgroundTasks, file: UploadFile = File(...)
     for key in supporting_keys:
         if key not in resolved_selected_fields:
             resolved_selected_fields.append(key)
+    return {
+        "df": df, "metadata": metadata, "part_type": part_type,
+        "selected_fields": resolved_selected_fields,
+        "strict_custom_fields": strict_custom_fields,
+        "custom_fields_used": custom_fields_used,
+    }
+
+
+@router.post("/upload")
+async def upload(background_tasks: BackgroundTasks, file: UploadFile = File(...), selected_fields: str = Form("[]"), column_mapping: str = Form("{}"), threshold: float = Form(DEFAULT_REVIEW_STRICTNESS), scan_name: str = Form("Inventory duplicate scan"), sensitive_mode: bool = Form(True), scan_mode: str = Form("SAME_SITE_DUPLICATE"), part_type: str = Form(DEFAULT_PART_TYPE), include_inventory_parts: bool = Form(True), product_authority: ProductScanAuthority = Form(ProductScanAuthority.CURRENT_PRODUCT), db: Session = Depends(get_db), configuration: Settings = Depends(get_llm_settings), triage_scheduler: LlmTriageScheduler = Depends(get_llm_triage_scheduler)):
+    prepared = await _prepare_upload(db, file, selected_fields, column_mapping, threshold, sensitive_mode, part_type, include_inventory_parts)
+    return _run_prepared_scan(
+        db, background_tasks, prepared, scan_name=scan_name, threshold=threshold,
+        sensitive_mode=sensitive_mode, scan_mode=scan_mode,
+        product_authority=product_authority, configuration=configuration,
+        triage_scheduler=triage_scheduler,
+    )
+
+
+@router.post("/upload-async", status_code=202)
+async def upload_async(file: UploadFile = File(...), selected_fields: str = Form("[]"), column_mapping: str = Form("{}"), threshold: float = Form(DEFAULT_REVIEW_STRICTNESS), scan_name: str = Form("Inventory duplicate scan"), sensitive_mode: bool = Form(True), scan_mode: str = Form("SAME_SITE_DUPLICATE"), part_type: str = Form(DEFAULT_PART_TYPE), include_inventory_parts: bool = Form(True), product_authority: ProductScanAuthority = Form(ProductScanAuthority.CURRENT_PRODUCT), db: Session = Depends(get_db), configuration: Settings = Depends(get_llm_settings), triage_scheduler: LlmTriageScheduler = Depends(get_llm_triage_scheduler), jobs: ScanJobRegistry = Depends(get_scan_jobs)):
+    """Validate now, scan in the background; poll ``/jobs/{job_id}`` for the result."""
+    prepared = await _prepare_upload(db, file, selected_fields, column_mapping, threshold, sensitive_mode, part_type, include_inventory_parts)
+    # The request session closes with this response, so the job opens its own.
+    session_factory = sessionmaker(bind=db.get_bind(), autocommit=False, autoflush=False)
+
+    def work(report_stage):
+        job_db = session_factory()
+        try:
+            return _run_prepared_scan(
+                job_db, ThreadedBackgroundTasks(), prepared, scan_name=scan_name,
+                threshold=threshold, sensitive_mode=sensitive_mode,
+                scan_mode=scan_mode, product_authority=product_authority,
+                configuration=configuration, triage_scheduler=triage_scheduler,
+                on_stage=report_stage,
+            )
+        finally:
+            job_db.close()
+
+    return jobs.submit(work)
+
+
+@router.get("/jobs/{job_id}")
+def scan_job(job_id: str, jobs: ScanJobRegistry = Depends(get_scan_jobs)):
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "Scan job not found; it may have finished before a server restart")
+    return job
+
+
+def _run_prepared_scan(db, background_tasks, prepared, *, scan_name, threshold, sensitive_mode, scan_mode, product_authority, configuration, triage_scheduler, on_stage=None):
+    df, metadata = prepared["df"], prepared["metadata"]
     try:
         scan, _ = run_scan(
             db, df, scan_name.strip() or "Inventory duplicate scan",
-            resolved_selected_fields, threshold,
+            prepared["selected_fields"], threshold,
             sensitive_mode=sensitive_mode,
             scan_mode=normalize_scan_mode(scan_mode), configuration=configuration,
             orchestration_mode=orchestration_mode_for_product_authority(
                 product_authority
             ),
-            part_type=part_type,
-            strict_custom_fields=strict_custom_fields,
-            custom_fields_used=custom_fields_used,
+            part_type=prepared["part_type"],
+            strict_custom_fields=prepared["strict_custom_fields"],
+            custom_fields_used=prepared["custom_fields_used"],
+            on_stage=on_stage,
         )
         pair_diagnostics = pair_diagnostics_state_for_scan(db, scan.id)
         try:

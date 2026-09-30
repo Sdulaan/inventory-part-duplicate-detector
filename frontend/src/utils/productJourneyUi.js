@@ -58,9 +58,41 @@ export function formatElapsed(totalSeconds) {
 
 export function processingGuidance(elapsedSeconds) {
   if (Number(elapsedSeconds) >= 60) {
-    return 'The request remains active. Larger inventories can take several minutes. Keep this page open and do not resubmit unless an error is shown.'
+    return 'The scan is still running on the server. Large inventories can take many minutes. Do not resubmit; if you leave this page, the finished scan appears under Recent scans.'
   }
-  return 'Large inventories can take several minutes. Keep this page open until the result is ready.'
+  return 'Large inventories can take several minutes. Keep this page open to open the result as soon as it is ready.'
+}
+
+const SCAN_STAGE_LABELS = {
+  CANONICAL_CATALOG: 'Reading records',
+  DISCOVERY: 'Finding candidate matches',
+  SIGNED_EVIDENCE: 'Checking match evidence',
+  GROUP_RESOLUTION: 'Building duplicate groups',
+  G2_V2_PROJECTION: 'Preparing results',
+}
+
+export function scanJobProgressLabel(job) {
+  const status = String(job?.status || '').toUpperCase()
+  if (status === 'QUEUED') return 'Waiting for another scan to finish'
+  if (status === 'COMPLETED') return 'Opening results'
+  return SCAN_STAGE_LABELS[String(job?.stage || '').toUpperCase()] || 'Starting scan'
+}
+
+/**
+ * Decide what the page does with one poll of a background scan job:
+ * keep polling, open the finished scan, or show an error.
+ */
+export function scanJobOutcome(job) {
+  const status = String(job?.status || '').toUpperCase()
+  if (status === 'QUEUED' || status === 'RUNNING') return { kind: 'pending' }
+  if (status === 'COMPLETED') {
+    const scanId = Number(job?.result?.scan_id)
+    return Number.isInteger(scanId) && scanId > 0
+      ? { kind: 'completed', scanId }
+      : { kind: 'failed', status: 'unexpected' }
+  }
+  if (status === 'FAILED') return { kind: 'failed', status: job?.error?.status_code ?? 500 }
+  return { kind: 'failed', status: 'unexpected' }
 }
 
 export function scanRequestError(status, phase = 'scan') {
