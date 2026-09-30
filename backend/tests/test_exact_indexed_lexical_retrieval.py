@@ -328,20 +328,40 @@ def test_i7_i10_i11_fixed_second_pass_uses_exact_scores_only(monkeypatch):
     assert bounded.metrics.remaining_insufficient_anchors == 0
 
 
-def test_i8_i9_no_third_pass_and_post_second_pass_fails_closed(monkeypatch):
+def test_i8_i9_anchors_short_after_second_pass_are_completed_exactly(monkeypatch):
     from app.services import lexical_retrieval
 
     insufficient = BoundedLexicalConfiguration("P1_RAREST", 1, 4, 5, 2)
     monkeypatch.setattr(lexical_retrieval, "PRIMARY_BOUNDED_CONFIGURATION", insufficient)
     monkeypatch.setattr(lexical_retrieval, "SECOND_PASS_BOUNDED_CONFIGURATION", insufficient)
-    with pytest.raises(LexicalRetrievalError) as error:
-        retrieve_bounded_lexical_neighbors(
-            csr_matrix([[1.0]] * 6), tuple(f"r-{i}" for i in range(6)), 2
-        )
-    assert error.value.safe_category == "LEXICAL_CANDIDATE_POOL_INSUFFICIENT"
+    matrix = csr_matrix([[1.0]] * 6)
+    refs = tuple(f"r-{i}" for i in range(6))
+    bounded = retrieve_bounded_lexical_neighbors(matrix, refs, 2)
+    exact = retrieve_exact_indexed_lexical_neighbors(matrix, refs, 2)
+    assert bounded.directed_neighbors == exact.directed_neighbors
+    assert bounded.metrics.remaining_insufficient_anchors == 6
+    assert bounded.metrics.second_pass_recovered_anchors == 0
     source = inspect.getsource(retrieve_bounded_lexical_neighbors)
     assert "third" not in source.casefold()
-    assert "retrieve_exact_indexed_lexical_neighbors" not in source
+
+
+def test_records_with_fewer_true_neighbours_than_top_k_do_not_fail_the_scan():
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    texts = [f"Viola x will Mix 6-Pack variant {index % 50}" for index in range(300)]
+    texts += ["QWZXJK", "Q"]
+    matrix = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5)).fit_transform(texts)
+    refs = tuple(f"ref-{index:04d}" for index in range(len(texts)))
+
+    bounded = retrieve_bounded_lexical_neighbors(matrix, refs, 5)
+    exact = retrieve_exact_indexed_lexical_neighbors(matrix, refs, 5)
+
+    for record in (len(texts) - 2, len(texts) - 1):
+        assert [target for target, _ in bounded.directed_neighbors[record]] == [
+            target for target, _ in exact.directed_neighbors[record]
+        ]
+    assert len(bounded.directed_neighbors[len(texts) - 1]) < 5
+    assert bounded.metrics.remaining_insufficient_anchors >= 2
 
 
 def test_i12_i13_bounded_ties_and_reverse_are_canonical(monkeypatch):

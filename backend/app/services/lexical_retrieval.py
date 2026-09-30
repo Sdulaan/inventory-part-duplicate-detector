@@ -190,9 +190,7 @@ def lexical_strategy_contract_payload(
             "retrieval-order-key-ascending-before-candidate-generation"
         ),
         "canonical_tie_rule": "full-score-desc-retrieval-order-key-asc",
-        "post_second_pass_failure_policy": (
-            LexicalRetrievalFailureCategory.CANDIDATE_POOL_INSUFFICIENT.value
-        ),
+        "post_second_pass_failure_policy": "EXACT_RERANK_REMAINING_ANCHORS",
     }
 
 
@@ -414,10 +412,40 @@ def _exact_rerank_pools(matrix, order_keys, sources, pools, final_top_k):
     return directed
 
 
+def _exact_rerank_all_candidates(matrix, order_keys, sources, final_top_k):
+    """Exact top-k over every record for anchors the bounded passes left short.
+
+    A record may genuinely have fewer than ``final_top_k`` lexical neighbours
+    (a unique code, a very short description); no bounded pool can fill it,
+    so its exact answer is used instead of failing the whole scan.
+    """
+    order_values = np.asarray(order_keys, dtype=object)
+    directed = {}
+    batch_size = SECOND_PASS_BOUNDED_CONFIGURATION.batch_size
+    for offset in range(0, len(sources), batch_size):
+        batch = sources[offset:offset + batch_size]
+        scores = (matrix[list(batch)] @ matrix.T).tocsr()
+        for row, source in enumerate(batch):
+            left, right = scores.indptr[row:row + 2]
+            targets = scores.indices[left:right]
+            values = scores.data[left:right]
+            keep = (targets != source) & (values > 0)
+            targets, values = targets[keep], values[keep]
+            selected = _canonical_top_k_positions(
+                values, targets, order_values, final_top_k
+            )
+            directed[source] = tuple(
+                (int(targets[position]), float(values[position]))
+                for position in selected
+            )
+    return directed
+
+
 def retrieve_bounded_lexical_neighbors(
     matrix, retrieval_order_keys, final_top_k: int,
 ) -> IndexedLexicalResult:
-    """Run the frozen bounded primary and one fixed fail-closed second pass."""
+    """Run the frozen bounded primary and second pass, then complete any
+    anchor still short of ``final_top_k`` with an exact search."""
     started = time.perf_counter()
     try:
         stable, stable_order_keys, original_positions = _validate_and_stabilize(
@@ -487,11 +515,15 @@ def retrieve_bounded_lexical_neighbors(
         source for source in insufficient
         if len(directed_stable[source]) < final_top_k
     )
-    if remaining:
+    try:
+        directed_stable.update(_exact_rerank_all_candidates(
+            stable, stable_order_keys, remaining, final_top_k
+        ))
+    except Exception as exc:
         raise LexicalRetrievalError(
-            LexicalRetrievalFailureCategory.CANDIDATE_POOL_INSUFFICIENT,
-            "bounded lexical candidate pool remains insufficient after fixed second pass",
-        )
+            LexicalRetrievalFailureCategory.INDEX_QUERY_FAILED,
+            "exact lexical completion query failed",
+        ) from exc
     directed = {
         int(original_positions[source]): tuple(
             (int(original_positions[target]), score) for target, score in rows
@@ -523,8 +555,9 @@ def retrieve_bounded_lexical_neighbors(
         query_scoring_time_ms=round(query_ms, 3),
         primary_insufficient_anchors=len(insufficient),
         second_pass_anchors=len(insufficient),
-        second_pass_recovered_anchors=len(insufficient),
-        remaining_insufficient_anchors=0,
+        second_pass_recovered_anchors=len(insufficient) - len(remaining),
+        # Anchors completed by the exact fallback rather than a bounded pass.
+        remaining_insufficient_anchors=len(remaining),
         second_pass_posting_visits=int(second_visits),
         second_pass_exact_reranks=int(second_reranks),
         second_pass_time_ms=round(second_ms, 3),
