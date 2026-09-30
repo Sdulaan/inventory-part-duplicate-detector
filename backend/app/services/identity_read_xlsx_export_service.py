@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from copy import copy
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
@@ -11,7 +12,9 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.cell_range import CellRange
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.merge import MergedCellRange
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from app.core.constants import FIELD_DEFINITIONS
@@ -382,6 +385,18 @@ _MEDIUM_BLUE = Side(style="medium", color="6C8FA5")
 _BORDER = Border(
     left=_THIN_GRAY, right=_THIN_GRAY, top=_THIN_GRAY, bottom=_THIN_GRAY
 )
+_GROUP_BORDERS = {
+    (top, bottom): Border(
+        left=_THIN_GRAY, right=_THIN_GRAY,
+        top=_MEDIUM_BLUE if top else _THIN_GRAY,
+        bottom=_MEDIUM_BLUE if bottom else _THIN_GRAY,
+    )
+    for top in (False, True) for bottom in (False, True)
+}
+_ROW_ALIGNMENTS = {
+    wrap: Alignment(vertical="top", wrap_text=wrap) for wrap in (False, True)
+}
+_MERGED_ALIGNMENT = Alignment(vertical="center", wrap_text=True)
 _MATCH_BAND_STYLES = {
     "High Match": (PatternFill("solid", fgColor="C6EFCE"), "1E7145"),
     "Moderate Match": (PatternFill("solid", fgColor="FFEB9C"), "9C6500"),
@@ -627,13 +642,36 @@ def _source_values(row: dict, source_columns=_SOURCE_COLUMNS) -> tuple:
     )
 
 
+def _apply_styles(cell, **styles) -> None:
+    """Set cell styles in order, reusing results already computed for this workbook.
+
+    Assigning a style makes openpyxl hash the style object against every style
+    in the workbook, which dominates large exports. Identical assignments on a
+    cell with identical current styling always produce the same style array,
+    so it is computed once per workbook and copied afterwards (as openpyxl
+    copies styles itself). Style values must be long-lived objects.
+    """
+    workbook = cell.parent.parent
+    memo = workbook.__dict__.setdefault("_style_assignment_memo", {})
+    current = None if cell._style is None else tuple(cell._style)
+    key = (current, tuple((name, id(value)) for name, value in styles.items()))
+    cached = memo.get(key)
+    if cached is None:
+        for name, value in styles.items():
+            setattr(cell, name, value)
+        # Holding the values keeps their ids from being reused while memoised.
+        memo[key] = (copy(cell._style), tuple(styles.values()))
+    else:
+        cell._style = copy(cached[0])
+
+
 def _write_row(sheet, row_number: int, values, *, wrap_columns=()) -> None:
     for column_number, value in enumerate(values, start=1):
         cell = sheet.cell(row=row_number, column=column_number)
         write_spreadsheet_safe_cell(cell, value)
-        cell.border = _BORDER
-        cell.alignment = Alignment(
-            vertical="top", wrap_text=column_number in wrap_columns
+        _apply_styles(
+            cell, border=_BORDER,
+            alignment=_ROW_ALIGNMENTS[column_number in wrap_columns],
         )
 
 
@@ -694,7 +732,7 @@ def _apply_selected_column_styles(
         column_number = prefix_length + offset
         sheet.cell(1, column_number).fill = _SELECTED_HEADER_FILL
         for row_number in range(2, last_row + 1):
-            sheet.cell(row_number, column_number).fill = _SELECTED_CELL_FILL
+            _apply_styles(sheet.cell(row_number, column_number), fill=_SELECTED_CELL_FILL)
 
 
 def _apply_match_band_style(cell, match_band: str | None) -> None:
@@ -741,8 +779,22 @@ def _add_member_decision_dropdown(sheet, column_letter: str, first_row: int, las
     )
 
 
+def _merge_disjoint(sheet, range_string=None, **bounds) -> None:
+    """Merge a range that overlaps no existing merge on the sheet.
+
+    Worksheet.merge_cells first compares the new range with every merged range
+    already present, which is quadratic across a large export. Export merges
+    are disjoint by construction (each group and member owns its rows), so
+    the range is registered directly and then cleaned exactly as openpyxl does.
+    """
+    cells = CellRange(range_string) if range_string else CellRange(**bounds)
+    merged = MergedCellRange(sheet, cells.coord)
+    sheet.merged_cells.ranges.add(merged)
+    sheet._clean_merge_range(merged)
+
+
 def _merge_and_write(sheet, cell_range: str, value, *, fill, font, alignment) -> None:
-    sheet.merge_cells(cell_range)
+    _merge_disjoint(sheet, cell_range)
     cell = sheet[cell_range.split(":", 1)[0]]
     write_spreadsheet_safe_cell(cell, value)
     cell.fill = fill
@@ -1224,31 +1276,29 @@ def _write_review_groups(
         fill = _GROUP_FILLS[group_index % len(_GROUP_FILLS)]
         for row_number in range(start_row, end_row + 1):
             for column_number in range(1, len(columns) + 1):
-                cell = sheet.cell(row_number, column_number)
-                cell.fill = fill
-                cell.border = Border(
-                    left=_THIN_GRAY, right=_THIN_GRAY,
-                    top=_MEDIUM_BLUE if row_number == start_row else _THIN_GRAY,
-                    bottom=_MEDIUM_BLUE if row_number == end_row else _THIN_GRAY,
+                _apply_styles(
+                    sheet.cell(row_number, column_number), fill=fill,
+                    border=_GROUP_BORDERS[(row_number == start_row, row_number == end_row)],
                 )
         for column_number in group_level_columns:
             if end_row > start_row:
-                sheet.merge_cells(
-                    start_row=start_row, start_column=column_number,
-                    end_row=end_row, end_column=column_number,
+                _merge_disjoint(
+                    sheet, min_row=start_row, min_col=column_number,
+                    max_row=end_row, max_col=column_number,
                 )
-            sheet.cell(start_row, column_number).alignment = Alignment(
-                vertical="center", wrap_text=True
+            _apply_styles(
+                sheet.cell(start_row, column_number), alignment=_MERGED_ALIGNMENT
             )
         for member_start_row, member_end_row in member_ranges:
             for column_number in member_level_columns:
                 if member_end_row > member_start_row:
-                    sheet.merge_cells(
-                        start_row=member_start_row, start_column=column_number,
-                        end_row=member_end_row, end_column=column_number,
+                    _merge_disjoint(
+                        sheet, min_row=member_start_row, min_col=column_number,
+                        max_row=member_end_row, max_col=column_number,
                     )
-                sheet.cell(member_start_row, column_number).alignment = Alignment(
-                    vertical="center", wrap_text=True
+                _apply_styles(
+                    sheet.cell(member_start_row, column_number),
+                    alignment=_MERGED_ALIGNMENT,
                 )
         _apply_match_band_style(
             sheet.cell(start_row, column_numbers["Match Band"]), p["match_band"]
