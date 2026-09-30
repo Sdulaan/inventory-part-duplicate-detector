@@ -36,7 +36,7 @@ def calculate_part_no_similarity(part_no_a, part_no_b) -> float:
     return round(float(fuzz.ratio(a, b)), 2)
 
 
-def calculate_technical_token_score(tokens_a, tokens_b) -> float:
+def calculate_technical_token_score(tokens_a, tokens_b, *, no_tokens_score: float = 50.0) -> float:
     if not isinstance(tokens_a, dict):
         tokens_a = extract_technical_tokens(tokens_a)
     if not isinstance(tokens_b, dict):
@@ -53,5 +53,5 @@ def calculate_technical_token_score(tokens_a, tokens_b) -> float:
         elif a and b:
             total += weight * (len(a & b) / len(a | b))
     if comparable == 0:
-        return 50.0
+        return no_tokens_score
     return round(max(0.0, min(100.0, total / comparable * 100)), 2)

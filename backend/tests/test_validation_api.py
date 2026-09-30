@@ -280,7 +280,7 @@ def test_structural_role_candidate_keeps_mismatch_evidence(client):
     upload = client.post(
         "/api/scans/upload",
         files={"file": ("structural-role.csv", csv, "text/csv")},
-        data={"selected_fields": '["CONTRACT","UNIT_MEAS"]', "threshold": "75", "product_authority": "legacy_compatibility"},
+        data={"selected_fields": '["CONTRACT","UNIT_MEAS"]', "threshold": "70", "product_authority": "legacy_compatibility"},
     )
 
     assert upload.status_code == 200

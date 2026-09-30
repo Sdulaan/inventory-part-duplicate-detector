@@ -26,6 +26,7 @@ from app.engine.identity_evidence_evaluator import (
     DeterministicIdentityContext,
     evaluate_canonical_identity_relationship,
 )
+from app.engine.lexical_trust import assess_lexical_trust
 from app.engine.scoring import score_candidate
 from app.evidence.contracts import IdentityEvidenceEdge, IdentityEvidenceRun
 from app.repositories.discovery_repository import DiscoveryRepository
@@ -242,24 +243,36 @@ def test_pure_evaluator_matches_authoritative_edge_semantics_and_is_orientation_
     reverse = evaluate_canonical_identity_relationship(
         catalog.records[1], catalog.records[0], context
     )
-    current = classify_identity_edge(score_candidate(
-        {
+    left_input = {
             "PART_NO": "M1", "DESCRIPTION": "MOTOR BEARING 6205",
             "CONTRACT": "S1", "UNIT_MEAS": "EA",
             "ACCOUNTING_GROUP": "AG1", "HSN_SAC_CODE": "1000",
             "PRODUCT_CATEGORY_ID": "CAT1",
-        },
-        {
+        }
+    right_input = {
             "PART_NO": "M2", "DESCRIPTION": "MOTOR BEARING SKF 6205",
             "CONTRACT": "S1", "UNIT_MEAS": "EA",
             "ACCOUNTING_GROUP": "AG1", "HSN_SAC_CODE": "1000",
             "PRODUCT_CATEGORY_ID": "CAT1",
-        },
-        ["CONTRACT", "UNIT_MEAS"],
+        }
+    result = score_candidate(
+        left_input, right_input, ["CONTRACT", "UNIT_MEAS"],
         allow_uom_mapping_review=True,
-    ))
-    assert forward.edge_class == current.edge_class
-    assert forward.classification_reason_codes == tuple(sorted(current.reason_codes))
+    )
+    current = classify_identity_edge(result)
+    reasons = set(current.reason_codes)
+    expected_class = current.edge_class
+    if current.edge_class == IdentityEdgeClass.STRONG_SUPPORT:
+        trust = assess_lexical_trust(
+            left_input, right_input, result,
+            record_reference_a=catalog.records[0].record_ref_key,
+            record_reference_b=catalog.records[1].record_ref_key,
+        )
+        if trust.requires_strong_downgrade:
+            expected_class = IdentityEdgeClass.REVIEW_SUPPORT
+            reasons |= set(trust.risk_reasons)
+    assert forward.edge_class == expected_class
+    assert forward.classification_reason_codes == tuple(sorted(reasons))
     assert forward == reverse
 
 
