@@ -17,8 +17,17 @@ from app.engine.variant_extractor import (
     find_critical_mismatches,
     find_identity_role_mismatches,
     find_one_sided_qualifier,
+    find_reordered_numbers,
     find_structural_role_mismatch,
 )
+
+# Same numbers in a different order (20x30 vs 30x20) may be one item written
+# two ways, so the pair is kept for review at a borderline score.
+REORDERED_NUMBERS_SCORE_CAP = 75.0
+
+
+# The score is a prediction, never a certainty: identical records top out here.
+MAX_PREDICTION_SCORE = 95.0
 
 
 def confidence_for(score):
@@ -216,11 +225,14 @@ def evaluate_candidate(
     part_no = calculate_part_no_similarity(record_a.get("PART_NO"), record_b.get("PART_NO"))
     tokens_a = features_a.technical_mapping()
     tokens_b = features_b.technical_mapping()
-    token_score = calculate_technical_token_score(tokens_a, tokens_b)
+    # Descriptions without numbers or units have nothing to disagree on.
+    token_score = calculate_technical_token_score(tokens_a, tokens_b, no_tokens_score=100.0)
     _matched, _mismatched, business = _field_matches(record_a, record_b, selected_fields)
 
-    final = description * 0.6 + business * 0.2 + part_no * 0.1 + token_score * 0.1
-    final = round(max(0.0, min(100.0, final)), 2)
+    # Duplicates are separate records, so their part numbers always differ and
+    # digit overlap says nothing about identity; part_no is reported, not weighted.
+    final = description * 0.7 + business * 0.2 + token_score * 0.1
+    final = round(max(0.0, min(MAX_PREDICTION_SCORE, final)), 2)
     explanation = build_explanation(
         record_a, record_b, matched, mismatched, description,
         allow_uom_mapping_review=allow_uom_mapping_review,
@@ -287,6 +299,19 @@ def evaluate_candidate(
         if not generic_warning:
             business_status = "POSSIBLE_DUPLICATE_REVIEW"
         reported_mismatches.append(structural_role_mismatch)
+
+    reordered = find_reordered_numbers(attributes_a, attributes_b)
+    if reordered:
+        final = min(final, REORDERED_NUMBERS_SCORE_CAP)
+        explanation = (
+            f"{explanation} Same dimensions written in a different order: "
+            f"{reordered['values_a'][0]} vs {reordered['values_b'][0]}. "
+            "Check whether these are the same item."
+        )
+        rule_decision = "DOWNGRADE"
+        rejection_reason = rejection_reason or "REORDERED_NUMBERS"
+        if not generic_warning:
+            business_status = "POSSIBLE_DUPLICATE_REVIEW"
 
     final = round(final, 2)
     confidence = confidence_for(final)
