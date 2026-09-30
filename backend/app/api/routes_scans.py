@@ -4,6 +4,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.concurrency import run_in_threadpool
 
 from app.db.database import get_db
 from app.core.config import Settings
@@ -250,7 +251,7 @@ async def validate_only(file: UploadFile = File(...), selected_fields: str = For
         file, parse_column_mapping(column_mapping, custom_field_keys), custom_fields, db,
         part_type=part_type, include_inventory_parts=include_inventory_parts,
     )
-    result = validate_dataframe(df, parse_selected_fields(selected_fields), sensitive_mode=sensitive_mode)
+    result = await run_in_threadpool(validate_dataframe, df, parse_selected_fields(selected_fields), sensitive_mode=sensitive_mode)
     result.update({key: metadata[key] for key in ("available_columns", "resolved_column_mapping", "normalized_columns", "column_mapping_conflicts", "column_samples", "inventory_filter")})
     inventory_filter = metadata["inventory_filter"]
     if inventory_filter["requested"]:
@@ -296,7 +297,7 @@ async def _prepare_upload(db, file, selected_fields, column_mapping, threshold, 
     if inventory_filter["requested"] and not inventory_filter["column_found"]:
         raise HTTPException(422, {"message": f"Cannot exclude inventory parts: no {inventory_filter['column_label']} column was found", "columns": [inventory_filter["column_label"]]})
     resolved_selected_fields = parse_selected_fields(selected_fields)
-    validation = validate_dataframe(df, resolved_selected_fields, sensitive_mode=sensitive_mode)
+    validation = await run_in_threadpool(validate_dataframe, df, resolved_selected_fields, sensitive_mode=sensitive_mode)
     if validation["missing_required_columns"]: raise HTTPException(422, {"message": "Missing required columns", "columns": validation["missing_required_columns"]})
     supporting_keys, strict_custom_fields, custom_fields_used = _custom_field_selection(custom_fields, metadata["resolved_column_mapping"])
     for key in supporting_keys:
