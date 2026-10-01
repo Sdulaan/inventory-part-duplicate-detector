@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from itertools import combinations
 
 from app.g2_v2.contracts import (
     G2_V2_ADAPTER_ALGORITHM_VERSION,
@@ -94,10 +95,11 @@ def _effective_internal_evidence(
     group, group_reference, references, proposal_by_pair, targeted_by_pair,
     configuration,
 ):
-    members = set(group.member_record_ids)
+    # A group has at most a few hundred internal pairs; look those up rather
+    # than scanning every proposal and targeted pair of the scan per group.
     pairs = sorted(
-        pair for pair in set(proposal_by_pair) | set(targeted_by_pair)
-        if set(pair) <= members
+        pair for pair in combinations(sorted(set(group.member_record_ids)), 2)
+        if pair in proposal_by_pair or pair in targeted_by_pair
     )
     output = []
     for pair in pairs:

@@ -36,6 +36,7 @@ from app.resolution.input_index import (
     record_references,
     records_by_id,
 )
+from app.resolution.unit_split import split_oversized_unit, split_reference
 from app.resolution.fingerprints import (
     deferred_identity_work_unit_fingerprint,
     identity_conflict_fingerprint,
@@ -138,13 +139,22 @@ def _targeted_request_work_unit_owners(
     for member in sorted(active):
         components.setdefault(find(member), []).append(member)
 
+    # A neighbourhood's members are all unioned, so it belongs to exactly one
+    # component; group references by root instead of scanning per component.
+    neighborhoods_by_root: dict[int, list] = {}
+    for neighborhood in value.identity_neighborhoods:
+        if neighborhood.member_record_ids:
+            neighborhoods_by_root.setdefault(
+                find(neighborhood.member_record_ids[0]), []
+            ).append(neighborhood)
+    max_members = value.resolver_configuration.max_resolution_members
+    base_lookup = None
     owners: dict[str, frozenset[int]] = {}
-    for members in components.values():
+    for root, members in components.items():
         member_set = frozenset(members)
+        neighborhoods = neighborhoods_by_root.get(root, ())
         neighborhood_references = tuple(sorted(
-            neighborhood.neighborhood_reference
-            for neighborhood in value.identity_neighborhoods
-            if member_set.intersection(neighborhood.member_record_ids)
+            item.neighborhood_reference for item in neighborhoods
         ))
         reference = (
             "|".join(neighborhood_references)
@@ -155,6 +165,21 @@ def _targeted_request_work_unit_owners(
             "targeted request work-unit ownership is ambiguous",
         )
         owners[reference] = member_set
+        # The resolver splits oversized, untruncated units into pieces that
+        # request targeted evidence under their own references.
+        if len(members) > max_members and not any(item.truncated for item in neighborhoods):
+            if base_lookup is None:
+                base_lookup = evidence_lookup(value, ())
+            pieces, _oversized = split_oversized_unit(
+                tuple(sorted(members)), base_lookup, max_members
+            )
+            for piece in pieces:
+                piece_reference = split_reference(reference, piece)
+                _require(
+                    piece_reference not in owners,
+                    "targeted request work-unit ownership is ambiguous",
+                )
+                owners[piece_reference] = frozenset(piece)
     return owners
 
 
@@ -355,7 +380,10 @@ def validate_group_hypothesis(
     resolution_input: IdentityResolutionInput,
     *,
     targeted_results: tuple[TargetedEvidenceResult, ...] = (),
+    evidence=None,
 ) -> None:
+    """``evidence`` is the lookup for ``targeted_results`` when a caller
+    validating many groups against the same results has already built it."""
     _require(group.scan_id == resolution_input.scan_id, "group hypothesis crosses scans")
     _canonical_ids(group.member_record_ids, "accepted group", minimum=2)
     known = record_ids(resolution_input)
@@ -408,7 +436,10 @@ def validate_group_hypothesis(
     _require(summary.required_conflict_checks_completed <= summary.required_conflict_checks_total,
              "completed conflict checks exceed required checks")
 
-    lookup = _evidence_lookup(resolution_input, targeted_results)
+    lookup = (
+        evidence if evidence is not None
+        else _evidence_lookup(resolution_input, targeted_results)
+    )
     internal_pairs = tuple(combinations(group.member_record_ids, 2))
     if CONTRACT_GROUP_CONSTRAINT in resolution_input.request_scoped_group_constraints:
         by_id = records_by_id(resolution_input)
@@ -530,20 +561,16 @@ def with_group_hypothesis_fingerprint(group: IdentityGroupHypothesis):
 def _validate_conflict(conflict: IdentityConflict, resolution_input: IdentityResolutionInput):
     _require(conflict.scan_id == resolution_input.scan_id, "conflict crosses scans")
     _canonical_ids(conflict.involved_record_ids, "conflict", minimum=2)
-    _require(set(conflict.involved_record_ids) <= {
-        record.record_id for record in resolution_input.canonical_records
-    }, "conflict references an unknown canonical record")
+    _require(set(conflict.involved_record_ids) <= record_ids(resolution_input),
+             "conflict references an unknown canonical record")
     _nonblank(conflict.conflict_id, "conflict_id")
     _nonblank(conflict.summary, "conflict summary")
     _require(len(conflict.involved_record_references) == len(conflict.involved_record_ids),
              "conflict record references do not align with record IDs")
     _unique_texts(conflict.involved_record_references,
                   "conflict record references")
-    expected_refs = tuple(
-        next(record.record_ref_key for record in resolution_input.canonical_records
-             if record.record_id == record_id)
-        for record_id in conflict.involved_record_ids
-    )
+    references = record_references(resolution_input)
+    expected_refs = tuple(references[record_id] for record_id in conflict.involved_record_ids)
     _require(conflict.involved_record_references == expected_refs,
              "conflict references do not match the canonical catalog")
     _require(isinstance(conflict.conflict_type, IdentityConflictType),
@@ -563,19 +590,15 @@ def with_identity_conflict_fingerprint(conflict: IdentityConflict):
 def _validate_deferred(value: DeferredIdentityWorkUnit, resolution_input):
     _require(value.scan_id == resolution_input.scan_id, "deferred work unit crosses scans")
     _canonical_ids(value.record_ids, "deferred work unit", minimum=1)
-    _require(set(value.record_ids) <= {
-        record.record_id for record in resolution_input.canonical_records
-    }, "deferred work unit references an unknown canonical record")
+    _require(set(value.record_ids) <= record_ids(resolution_input),
+             "deferred work unit references an unknown canonical record")
     _nonblank(value.deferred_id, "deferred_id")
     _nonblank(value.unfinished_evidence_summary, "unfinished_evidence_summary")
     _require(len(value.record_references) == len(value.record_ids),
              "deferred record references do not align with record IDs")
     _unique_texts(value.record_references, "deferred record references")
-    expected_refs = tuple(
-        next(record.record_ref_key for record in resolution_input.canonical_records
-             if record.record_id == record_id)
-        for record_id in value.record_ids
-    )
+    references = record_references(resolution_input)
+    expected_refs = tuple(references[record_id] for record_id in value.record_ids)
     _require(value.record_references == expected_refs,
              "deferred references do not match the canonical catalog")
     _require(isinstance(value.reason, DeferredIdentityReason),
@@ -722,9 +745,11 @@ def validate_resolution_result(
              "accepted groups must use deterministic order")
 
     seen = set()
+    evidence = _evidence_lookup(resolution_input, result.targeted_evidence_results)
     for group in result.accepted_groups:
         validate_group_hypothesis(
-            group, resolution_input, targeted_results=result.targeted_evidence_results
+            group, resolution_input,
+            targeted_results=result.targeted_evidence_results, evidence=evidence,
         )
         overlap = seen & set(group.member_record_ids)
         _require(not overlap, "record appears in two accepted groups")

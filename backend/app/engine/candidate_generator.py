@@ -54,9 +54,16 @@ def generate_candidate_pairs(df: pd.DataFrame, selected_fields: list[str]):
             blocks.setdefault(key, []).append(idx)
         groups = (df.loc[indexes] for indexes in blocks.values())
 
+    # Each block is compared completely or not at all. Truncating a block in
+    # file order compared only its first records; a block too large for every
+    # pair is instead left to similarity retrieval, which covers each record.
     limit_reached = False
     for group in groups:
-        for idx_a, idx_b in combinations(group.index.tolist(), 2):
+        indexes = group.index.tolist()
+        if len(pairs) + len(indexes) * (len(indexes) - 1) // 2 > MAX_CANDIDATE_PAIRS:
+            limit_reached = True
+            continue
+        for idx_a, idx_b in combinations(indexes, 2):
             key = tuple(sorted((int(idx_a), int(idx_b))))
             if key in seen:
                 continue
@@ -64,10 +71,6 @@ def generate_candidate_pairs(df: pd.DataFrame, selected_fields: list[str]):
                 continue
             seen.add(key)
             pairs.append(_pair(df.loc[idx_a].to_dict(), df.loc[idx_b].to_dict(), selected_fields, warnings))
-            if len(pairs) >= MAX_CANDIDATE_PAIRS:
-                warnings.append({"warning_type": "PAIR_LIMIT_REACHED", "message": f"Candidate generation stopped at the safety limit of {MAX_CANDIDATE_PAIRS} pairs. Use more selective business fields or a background-worker deployment for broader scans."})
-                limit_reached = True
-                break
-        if limit_reached:
-            break
+    if limit_reached:
+        warnings.append({"warning_type": "PAIR_LIMIT_REACHED", "message": f"Groups of records with the same selected conditions that would need more than {MAX_CANDIDATE_PAIRS} comparisons were matched by description similarity instead of comparing every pair."})
     return pairs

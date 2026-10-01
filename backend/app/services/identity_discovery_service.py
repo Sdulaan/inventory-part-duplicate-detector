@@ -95,6 +95,12 @@ def _configuration_payload(
             "TIER_B": int(value("hybrid_retrieval_tier_b_max", 200)),
             "TIER_C": int(value("hybrid_retrieval_tier_c_max", 50)),
         },
+    })
+    per_record = float(value("hybrid_retrieval_pairs_per_record", 0) or 0)
+    if per_record:
+        # Only recorded when scaling is on, so unscaled fingerprints are unchanged.
+        payload["hybrid_pairs_per_record"] = per_record
+    payload.update({
         "local_embedding_enabled": bool(value("local_embedding_enabled", True)),
         "local_embedding_model": str(value("local_embedding_model", "sklearn-hashing-domain-v1")),
     })

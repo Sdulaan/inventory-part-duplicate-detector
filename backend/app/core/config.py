@@ -214,6 +214,18 @@ class Settings(BaseModel):
     hybrid_retrieval_max_pairs_per_scan: int = Field(
         default_factory=lambda: os.getenv("HYBRID_RETRIEVAL_MAX_PAIRS_PER_SCAN", "500"), gt=0, le=5000
     )
+    # Scales the pair caps with file size: a fixed cap of 500 pairs left
+    # almost every record of a large file uncompared. 0 keeps the fixed caps.
+    hybrid_retrieval_pairs_per_record: float = Field(
+        default_factory=lambda: os.getenv("HYBRID_RETRIEVAL_PAIRS_PER_RECORD", "3"), ge=0, le=20
+    )
+    # Worker processes for scoring pairs in large scans; defaults to all but one core.
+    scan_worker_processes: int = Field(
+        default_factory=lambda: os.getenv(
+            "SCAN_WORKER_PROCESSES", str(max(1, (os.cpu_count() or 2) - 1))
+        ),
+        ge=1, le=64,
+    )
     hybrid_retrieval_tier_a_max: int = Field(
         default_factory=lambda: os.getenv("HYBRID_RETRIEVAL_TIER_A_MAX", "250"), ge=0, le=5000
     )
