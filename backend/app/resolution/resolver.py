@@ -33,6 +33,7 @@ from app.resolution.contracts import (
     TargetedEvidenceResult,
 )
 from app.resolution.fingerprints import fingerprint_payload
+from app.resolution.unit_split import split_oversized_unit, split_reference
 from app.resolution.input_index import (
     evidence_lookup,
     human_cannot_links,
@@ -96,6 +97,17 @@ class _WorkUnit:
     neighborhood_references: tuple[str, ...]
     truncated: bool
     degraded: bool
+    # Set for a piece of an oversized unit (see unit_split).
+    reference_override: str | None = None
+
+
+def _unit_reference(unit) -> str:
+    if unit.reference_override:
+        return unit.reference_override
+    return (
+        "|".join(unit.neighborhood_references)
+        or f"records:{','.join(map(str, unit.member_ids))}"
+    )
 
 
 @dataclass
@@ -163,10 +175,13 @@ class _UnionFind:
         self.parent = {member: member for member in members}
 
     def find(self, member):
-        parent = self.parent[member]
-        if parent != member:
-            self.parent[member] = self.find(parent)
-        return self.parent[member]
+        # Iterative with full path compression; recursion overflowed on long chains.
+        root = member
+        while self.parent[root] != root:
+            root = self.parent[root]
+        while self.parent[member] != root:
+            self.parent[member], member = root, self.parent[member]
+        return root
 
     def union(self, left, right):
         first, second = self.find(left), self.find(right)
@@ -197,13 +212,18 @@ def _work_units(value: IdentityResolutionInput) -> tuple[_WorkUnit, ...]:
     components = {}
     for member in sorted(active):
         components.setdefault(union.find(member), []).append(member)
+    # Every neighbourhood's members were unioned together, so a neighbourhood
+    # belongs to exactly one component; assign it there directly rather than
+    # testing every neighbourhood against every component.
+    neighborhoods_by_root = {}
+    for item in value.identity_neighborhoods:
+        if item.member_record_ids:
+            neighborhoods_by_root.setdefault(
+                union.find(item.member_record_ids[0]), []
+            ).append(item)
     output = []
-    for members in components.values():
-        member_set = set(members)
-        neighborhoods = tuple(
-            item for item in value.identity_neighborhoods
-            if member_set.intersection(item.member_record_ids)
-        )
+    for root, members in components.items():
+        neighborhoods = neighborhoods_by_root.get(root, ())
         output.append(_WorkUnit(
             member_ids=tuple(sorted(members)),
             neighborhood_references=tuple(sorted(
@@ -277,10 +297,7 @@ def _targeted_requests(value, unit, lookup):
             record_id_1=left,
             record_id_2=right,
             reason=reason,
-            requesting_work_unit_reference=(
-                "|".join(unit.neighborhood_references)
-                or f"records:{','.join(map(str, unit.member_ids))}"
-            ),
+            requesting_work_unit_reference=_unit_reference(unit),
             request_fingerprint="",
             record_reference_1=references[left],
             record_reference_2=references[right],
@@ -526,12 +543,17 @@ def _select_partition(value, candidates, counters):
     exhausted = False
     starting_count = counters.candidate_partitions_explored
 
-    def visit(index, selected, used):
-        nonlocal best_objective, exhausted
+    # Depth-first over "skip, then include" for each candidate. An explicit
+    # stack replaces recursion, whose depth equalled the candidate count and
+    # overflowed on work units with more than ~1000 candidate groups; frames
+    # are pushed include-first so they are visited in the recursive order.
+    stack = [(0, (), frozenset())]
+    while stack:
+        index, selected, used = stack.pop()
         counters.candidate_partitions_explored += 1
         if counters.candidate_partitions_explored - starting_count > maximum_explored:
             exhausted = True
-            return
+            break
         if index == len(candidates):
             groups = tuple(candidates[item].group for item in selected)
             covered = len(used)
@@ -554,15 +576,12 @@ def _select_partition(value, candidates, counters):
                 best_partitions.add(signature)
             elif objective == best_objective:
                 best_partitions.add(signature)
-            return
-        visit(index + 1, selected, used)
-        if exhausted:
-            return
+            continue
         candidate = candidates[index]
         if not (used & candidate.members):
-            visit(index + 1, selected + (index,), used | candidate.members)
+            stack.append((index + 1, selected + (index,), used | candidate.members))
+        stack.append((index + 1, selected, used))
 
-    visit(0, (), frozenset())
     if exhausted or not best_partitions:
         return (), True, False
     by_semantic_key = {
@@ -711,6 +730,113 @@ def _protected_conflict(value, unit, lookup, targeted_results=()):
     )
 
 
+@dataclass
+class _UnitOutcome:
+    accepted: list
+    conflicts: list
+    deferred: list
+    requests: list
+    results: list
+    counters: _ExecutionCounters
+
+
+def _resolve_unit(value, unit, blocked, provider) -> _UnitOutcome:
+    """Resolve one work unit, or one piece of a split oversized unit.
+
+    Work units are disjoint, so a unit's outcome depends only on the immutable
+    input and the unit itself; units can be resolved in any order or process.
+    """
+    counters = _ExecutionCounters()
+    outcome = _UnitOutcome([], [], [], [], [], counters)
+    if unit.truncated:
+        outcome.deferred.append(_deferred(
+            value, unit,
+            DeferredIdentityReason.DISCOVERY_TRUNCATION_REQUIRES_LATER_ANALYSIS,
+            "truncated discovery may affect membership or ownership",
+        ))
+        return outcome
+
+    base_lookup = _effective_lookup(value, ())
+    schedulable = replace(
+        unit,
+        member_ids=tuple(member for member in unit.member_ids if member not in blocked),
+    )
+    if len(schedulable.member_ids) < 2:
+        return outcome
+    planned = _targeted_requests(value, schedulable, base_lookup)
+    budget = value.resolver_configuration.max_targeted_checks_per_work_unit
+    scheduled = planned[:budget]
+    outcome.requests.extend(scheduled)
+    evaluation_failed = False
+    unit_results = []
+    targeted_cache = {}
+    for request in scheduled:
+        pair = (request.record_id_1, request.record_id_2)
+        if pair in targeted_cache:
+            counters.targeted_cache_hits += 1
+            unit_results.append(targeted_cache[pair])
+            continue
+        if provider is None:
+            evaluation_failed = True
+            continue
+        try:
+            result = provider.evaluate(request)
+            if result.request.request_fingerprint != request.request_fingerprint:
+                raise IdentityResolutionValidationError(
+                    "targeted provider returned a result for another request"
+                )
+            targeted_cache[pair] = result
+            unit_results.append(result)
+        except Exception:
+            evaluation_failed = True
+    outcome.results.extend(unit_results)
+    if len(planned) > budget:
+        outcome.deferred.append(_deferred(
+            value, unit,
+            DeferredIdentityReason.TARGETED_EVIDENCE_BUDGET_EXHAUSTED,
+            "required deterministic targeted checks exceed the work-unit budget",
+        ))
+        return outcome
+    if planned and (evaluation_failed or len(unit_results) != len(planned)):
+        outcome.deferred.append(_deferred(
+            value, unit, DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
+            "required deterministic targeted evidence could not be completed",
+        ))
+        return outcome
+
+    lookup = _effective_lookup(value, unit_results)
+    targeted_protected = _protected_conflict(
+        value, unit, lookup, targeted_results=unit_results
+    )
+    if targeted_protected is not None:
+        outcome.conflicts.append(targeted_protected)
+    candidates, generation_exhausted = _candidate_groups(
+        value, schedulable, lookup, unit_results, counters
+    )
+    if generation_exhausted:
+        outcome.deferred.append(_deferred(
+            value, unit, DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
+            "bounded candidate generation limit was reached",
+        ))
+        return outcome
+    selected, search_exhausted, ambiguous = _select_partition(
+        value, candidates, counters
+    )
+    if search_exhausted:
+        outcome.deferred.append(_deferred(
+            value, unit, DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
+            "bounded partition-search limit was reached",
+        ))
+        return outcome
+    outcome.accepted.extend(selected)
+    if ambiguous:
+        outcome.deferred.append(_deferred(
+            value, unit, DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY,
+            "equally supported disjoint partitions leave ownership unresolved",
+        ))
+    return outcome
+
+
 def resolve_identity_groups(
     resolution_input: IdentityResolutionInput,
     targeted_evidence_provider: TargetedEvidenceProvider | None,
@@ -724,7 +850,7 @@ def resolve_identity_groups(
     deferred = []
     all_requests = []
     all_results = []
-    targeted_cache = {}
+    jobs = []
 
     for unit in units:
         constraint_conflicts, blocked = _constraint_conflicts(value, unit)
@@ -733,96 +859,53 @@ def resolve_identity_groups(
         protected = _protected_conflict(value, unit, base_lookup)
         if protected is not None:
             conflicts.append(protected)
-        if len(unit.member_ids) > value.resolver_configuration.max_resolution_members:
+        max_members = value.resolver_configuration.max_resolution_members
+        if len(unit.member_ids) > max_members and not unit.truncated:
+            pieces, oversized = split_oversized_unit(
+                unit.member_ids, base_lookup, max_members
+            )
+            for members in oversized:
+                deferred.append(_deferred(
+                    value, unit, DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED,
+                    "work unit still exceeds max_resolution_members after splitting "
+                    "on its weakest positive links",
+                    member_ids=members,
+                ))
+            # Records with no positive link were never checked pairwise, so
+            # they stay deferred rather than silently becoming unassigned.
+            placed = {member for group in (*pieces, *oversized) for member in group}
+            unplaced = tuple(member for member in unit.member_ids if member not in placed)
+            if unplaced:
+                deferred.append(_deferred(
+                    value, unit, DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED,
+                    "records of an oversized work unit without positive links "
+                    "were not checked pairwise",
+                    member_ids=unplaced,
+                ))
+            parent_reference = _unit_reference(unit)
+            for members in pieces:
+                jobs.append((replace(
+                    unit, member_ids=members,
+                    reference_override=split_reference(parent_reference, members),
+                ), frozenset(blocked)))
+            continue
+        if len(unit.member_ids) > max_members:
             deferred.append(_deferred(
                 value, unit, DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED,
                 "overlapping discovery work unit exceeds max_resolution_members",
             ))
             continue
-        if unit.truncated:
-            deferred.append(_deferred(
-                value, unit,
-                DeferredIdentityReason.DISCOVERY_TRUNCATION_REQUIRES_LATER_ANALYSIS,
-                "truncated discovery may affect membership or ownership",
-            ))
-            continue
+        jobs.append((unit, frozenset(blocked)))
 
-        schedulable = replace(
-            unit,
-            member_ids=tuple(member for member in unit.member_ids if member not in blocked),
-        )
-        if len(schedulable.member_ids) < 2:
-            continue
-        planned = _targeted_requests(value, schedulable, base_lookup)
-        budget = value.resolver_configuration.max_targeted_checks_per_work_unit
-        scheduled = planned[:budget]
-        all_requests.extend(scheduled)
-        evaluation_failed = False
-        unit_results = []
-        for request in scheduled:
-            pair = (request.record_id_1, request.record_id_2)
-            if pair in targeted_cache:
-                counters.targeted_cache_hits += 1
-                unit_results.append(targeted_cache[pair])
-                continue
-            if targeted_evidence_provider is None:
-                evaluation_failed = True
-                continue
-            try:
-                result = targeted_evidence_provider.evaluate(request)
-                if result.request.request_fingerprint != request.request_fingerprint:
-                    raise IdentityResolutionValidationError(
-                        "targeted provider returned a result for another request"
-                    )
-                targeted_cache[pair] = result
-                unit_results.append(result)
-            except Exception:
-                evaluation_failed = True
-        all_results.extend(unit_results)
-        if len(planned) > budget:
-            deferred.append(_deferred(
-                value, unit,
-                DeferredIdentityReason.TARGETED_EVIDENCE_BUDGET_EXHAUSTED,
-                "required deterministic targeted checks exceed the work-unit budget",
-            ))
-            continue
-        if planned and (evaluation_failed or len(unit_results) != len(planned)):
-            deferred.append(_deferred(
-                value, unit, DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
-                "required deterministic targeted evidence could not be completed",
-            ))
-            continue
-
-        lookup = _effective_lookup(value, unit_results)
-        targeted_protected = _protected_conflict(
-            value, unit, lookup, targeted_results=unit_results
-        )
-        if targeted_protected is not None:
-            conflicts.append(targeted_protected)
-        candidates, generation_exhausted = _candidate_groups(
-            value, schedulable, lookup, unit_results, counters
-        )
-        if generation_exhausted:
-            deferred.append(_deferred(
-                value, unit, DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
-                "bounded candidate generation limit was reached",
-            ))
-            continue
-        selected, search_exhausted, ambiguous = _select_partition(
-            value, candidates, counters
-        )
-        if search_exhausted:
-            deferred.append(_deferred(
-                value, unit, DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
-                "bounded partition-search limit was reached",
-            ))
-            continue
-        accepted.extend(selected)
-        if ambiguous:
-            deferred.append(_deferred(
-                value, unit, DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY,
-                "equally supported disjoint partitions leave ownership unresolved",
-            ))
+    for unit, blocked in jobs:
+        outcome = _resolve_unit(value, unit, blocked, targeted_evidence_provider)
+        accepted.extend(outcome.accepted)
+        conflicts.extend(outcome.conflicts)
+        deferred.extend(outcome.deferred)
+        all_requests.extend(outcome.requests)
+        all_results.extend(outcome.results)
+        counters.candidate_partitions_explored += outcome.counters.candidate_partitions_explored
+        counters.targeted_cache_hits += outcome.counters.targeted_cache_hits
 
     accepted = tuple(sorted(accepted, key=lambda item: item.hypothesis_id))
     conflicts = tuple(sorted(

@@ -400,6 +400,28 @@ def _allowed_pair(
     return True
 
 
+def scaled_hybrid_caps(configuration, record_count: int) -> tuple[int, dict[str, int]]:
+    """Pair caps that grow with the file instead of a fixed per-scan total.
+
+    The configured caps are a floor. With ``hybrid_retrieval_pairs_per_record``
+    set, the global cap becomes ``record_count * pairs_per_record`` and each
+    tier cap grows in the same proportion, so every record can keep its best
+    candidates. A configuration without that setting keeps the fixed caps.
+    """
+    base = int(configuration.hybrid_retrieval_max_pairs_per_scan)
+    tiers = {
+        "TIER_A": int(configuration.hybrid_retrieval_tier_a_max),
+        "TIER_B": int(configuration.hybrid_retrieval_tier_b_max),
+        "TIER_C": int(configuration.hybrid_retrieval_tier_c_max),
+    }
+    per_record = float(getattr(configuration, "hybrid_retrieval_pairs_per_record", 0) or 0)
+    scaled = max(base, math.ceil(record_count * per_record))
+    if scaled == base or base <= 0:
+        return base, tiers
+    factor = scaled / base
+    return scaled, {tier: math.ceil(cap * factor) for tier, cap in tiers.items()}
+
+
 def _blocking_signals(left: dict, right: dict, scan_mode: str) -> tuple[str, ...]:
     signals = []
     left_site = str(left.get("CONTRACT") or "").strip().casefold()
@@ -1056,11 +1078,9 @@ class HybridCandidateRetriever:
             -item["priority"], -item["specificity"],
             pair_order(item["left"], item["right"]),
         ))
-        global_cap = self.configuration.hybrid_retrieval_max_pairs_per_scan
+        global_cap, scaled_tiers = scaled_hybrid_caps(self.configuration, len(records))
         tier_caps = {
-            RetrievalTier.TIER_A: self.configuration.hybrid_retrieval_tier_a_max,
-            RetrievalTier.TIER_B: self.configuration.hybrid_retrieval_tier_b_max,
-            RetrievalTier.TIER_C: self.configuration.hybrid_retrieval_tier_c_max,
+            RetrievalTier(tier): cap for tier, cap in scaled_tiers.items()
         }
         per_record = Counter()
         family_counts = Counter()

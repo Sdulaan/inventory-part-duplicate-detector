@@ -251,6 +251,8 @@ def test_hybrid_cap_and_generic_context_are_explicit_without_false_precision(db)
         hybrid_retrieval_tier_a_max=1,
         hybrid_retrieval_tier_b_max=1,
         hybrid_retrieval_tier_c_max=1,
+        # A fixed cap: the per-record scaling would otherwise lift it to 12.
+        hybrid_retrieval_pairs_per_record=0,
     )
     scan, catalog = create_scan_and_catalog(db, rows)
     hybrid = HybridCandidateRetriever(cfg, cache=MemoryEmbeddingVectorCache()).retrieve(

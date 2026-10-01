@@ -31,6 +31,7 @@ from app.evidence.contracts import (
 from app.repositories.discovery_repository import DiscoveryRepository
 from app.repositories.evidence_repository import EvidenceRepository
 from app.services.canonical_record_service import load_scan_record_catalog
+from app.services.parallel_evaluation import evaluate_canonical_pairs
 
 
 IDENTITY_EVIDENCE_ACQUISITION_VERSION = "independent-identity-evidence-v1"
@@ -227,14 +228,21 @@ def acquire_identity_evidence(db, *, evidence_run_id: int) -> EvidenceAcquisitio
     if len(pair_keys) != len(ordered_proposals):
         raise ValueError("discovery run contains duplicate proposal pairs")
 
+    for proposal in ordered_proposals:
+        if (
+            proposal.record_id_1 not in records_by_id
+            or proposal.record_id_2 not in records_by_id
+            or proposal.scan_id != run.scan_id
+        ):
+            raise ValueError("proposal endpoint is outside the evidence run GF-1 catalog")
+    evaluations = evaluate_canonical_pairs(
+        records_by_id, context,
+        [(proposal.record_id_1, proposal.record_id_2) for proposal in ordered_proposals],
+    )
+
     rows = []
     counts = Counter()
-    for proposal in ordered_proposals:
-        left = records_by_id.get(proposal.record_id_1)
-        right = records_by_id.get(proposal.record_id_2)
-        if left is None or right is None or proposal.scan_id != run.scan_id:
-            raise ValueError("proposal endpoint is outside the evidence run GF-1 catalog")
-        evaluated = evaluate_canonical_identity_relationship(left, right, context)
+    for proposal, evaluated in zip(ordered_proposals, evaluations):
         if (evaluated.record_id_1, evaluated.record_id_2) != (
             proposal.record_id_1, proposal.record_id_2
         ):

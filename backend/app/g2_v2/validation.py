@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from itertools import combinations
 
 from app.engine.identity_edge import IdentityEdgeClass
 from app.g2_v2.contracts import (
@@ -73,9 +74,31 @@ def _validate_source_result(result):
         )
 
 
+def _targeted_indexes(source_requests, source_targeted_results):
+    """Per-pair views of the scan's targeted requests and results.
+
+    Built once per manifest; scanning every request and result for each group
+    was quadratic in large scans.
+    """
+    targeted_by_pair = {
+        _pair(item.request.record_id_1, item.request.record_id_2): item
+        for item in source_targeted_results
+    }
+    requests_by_pair = {}
+    for request in source_requests:
+        requests_by_pair.setdefault(
+            _pair(request.record_id_1, request.record_id_2), []
+        ).append(request)
+    return targeted_by_pair, requests_by_pair
+
+
 def _validate_group(
-    group, source, records_by_id, source_requests, source_targeted_results
+    group, source, records_by_id, source_requests, source_targeted_results,
+    indexes=None,
 ):
+    targeted_by_pair, requests_by_pair = indexes or _targeted_indexes(
+        source_requests, source_targeted_results
+    )
     _require(group.scan_id == source.scan_id, "G2-v2 group crosses scans")
     _require(group.status == source.status, "G2-v2 group status differs from source")
     _require(
@@ -121,10 +144,6 @@ def _validate_group(
         )
 
     evidence_by_pair = {}
-    targeted_by_pair = {
-        _pair(item.request.record_id_1, item.request.record_id_2): item
-        for item in source_targeted_results
-    }
     for evidence in group.internal_evidence:
         _require(
             evidence.group_reference == group.group_reference,
@@ -246,8 +265,8 @@ def _validate_group(
 
     internal_requests = {
         request.request_fingerprint: request
-        for request in source_requests
-        if {request.record_id_1, request.record_id_2} <= set(member_ids)
+        for pair in combinations(sorted(set(member_ids)), 2)
+        for request in requests_by_pair.get(pair, ())
     }
     evidence_refs = {
         reference
@@ -396,12 +415,17 @@ def validate_g2_v2_manifest(
     )
     _require(set(groups) == set(source_groups), "G2-v2 accepted groups differ from source")
     seen_members = set()
+    indexes = _targeted_indexes(
+        persisted_resolution_result.targeted_evidence_requests,
+        persisted_resolution_result.targeted_evidence_results,
+    )
     for fingerprint in sorted(groups):
         group = groups[fingerprint]
         _validate_group(
             group, source_groups[fingerprint], records_by_id,
             persisted_resolution_result.targeted_evidence_requests,
             persisted_resolution_result.targeted_evidence_results,
+            indexes,
         )
         current = {item.record_id for item in group.members}
         _require(not (seen_members & current), "record appears in two accepted G2-v2 groups")

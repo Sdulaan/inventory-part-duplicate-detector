@@ -20,7 +20,7 @@ TARGETED_EVIDENCE_CONTRACT_VERSION = (
     "targeted-evidence-v3-explanation-preserving"
 )
 DEFAULT_RESOLVER_ALGORITHM_VERSION = (
-    "constrained-identity-resolver-v3-request-scoped-site"
+    "constrained-identity-resolver-v4-split-oversized-units"
 )
 
 
