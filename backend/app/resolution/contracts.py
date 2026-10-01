@@ -20,7 +20,7 @@ TARGETED_EVIDENCE_CONTRACT_VERSION = (
     "targeted-evidence-v3-explanation-preserving"
 )
 DEFAULT_RESOLVER_ALGORITHM_VERSION = (
-    "constrained-identity-resolver-v4-split-oversized-units"
+    "constrained-identity-resolver-v6-bounded-positive-work-units"
 )
 
 
@@ -82,6 +82,9 @@ class IdentityResolutionNeighborhood:
     member_record_ids: tuple[int, ...]
     truncated: bool
     degraded: bool
+    # The record whose candidates the neighbourhood holds; truncation can only
+    # have hidden members of the work unit that contains it.
+    anchor_record_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -94,6 +97,7 @@ class IdentityResolutionEvidenceEdge:
     reason_codes: tuple[str, ...]
     evidence_fingerprint: str
     generic_only: bool = False
+    deterministic_score: float | None = None
 
 
 @dataclass(frozen=True)

@@ -139,3 +139,144 @@ def test_threaded_background_tasks_run_off_the_scan_thread():
     )
     assert done.wait(5)
     assert seen == [("triage", "scan-follow-up")]
+
+
+def test_scans_left_running_by_a_restart_are_marked_failed(db):
+    from app.db.models import DuplicateScan, ScanOrchestrationRun
+    from app.services.scan_jobs import fail_interrupted_scans
+
+    interrupted = DuplicateScan(
+        scan_name="interrupted", threshold=75, status="RUNNING",
+        model_version="test", selected_fields="[]",
+    )
+    finished = DuplicateScan(
+        scan_name="finished", threshold=75, status="COMPLETED",
+        model_version="test", selected_fields="[]",
+    )
+    db.add_all([interrupted, finished])
+    db.flush()
+    db.add(ScanOrchestrationRun(
+        scan_id=interrupted.id, mode="group_first_primary", policy_version="v",
+        policy_fingerprint="p" * 64, plan_fingerprint="q" * 64,
+        primary_identity_pipeline="GROUP_FIRST_GF1_GF6",
+        visible_projection_contract="G2_V2",
+        compatibility_projection_required=False, status="RUNNING",
+    ))
+    db.commit()
+
+    class _SharedSession:
+        """Hands the test session to the function without closing it."""
+
+        def __call__(self):
+            return self
+
+        def __getattr__(self, name):
+            return getattr(db, name)
+
+        def close(self):
+            pass
+
+    assert fail_interrupted_scans(_SharedSession()) == [interrupted.id]
+    db.expire_all()
+    assert db.get(DuplicateScan, interrupted.id).status == "FAILED"
+    assert db.get(DuplicateScan, interrupted.id).completed_at is not None
+    assert db.get(DuplicateScan, finished.id).status == "COMPLETED"
+    run = db.query(ScanOrchestrationRun).filter_by(scan_id=interrupted.id).one()
+    assert run.status == "FAILED" and run.visible_product_ready is False
+    assert fail_interrupted_scans(_SharedSession()) == []
+
+
+def test_queued_job_cancelled_before_it_starts_never_runs():
+    registry = ScanJobRegistry()
+    release = threading.Event()
+    ran = []
+    blocker = registry.submit(lambda report: release.wait(5) and {})
+    queued = registry.submit(lambda report: ran.append(True) or {})
+    assert registry.cancel(queued["job_id"])["status"] == "CANCELLED"
+    release.set()
+    deadline = time.monotonic() + 5
+    while registry.get(blocker["job_id"])["status"] != COMPLETED:
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    time.sleep(0.05)
+    assert ran == []
+    assert registry.get(queued["job_id"])["status"] == "CANCELLED"
+
+
+def test_running_job_stops_at_its_next_checkpoint():
+    from app.core.cancellation import bind_scan, raise_if_cancelled
+
+    registry = ScanJobRegistry()
+    started = threading.Event()
+    reached_end = []
+
+    def work(report):
+        bind_scan(42)
+        started.set()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            raise_if_cancelled()
+            time.sleep(0.01)
+        reached_end.append(True)
+        return {}
+
+    job = registry.submit(work)
+    assert started.wait(5)
+    assert registry.get(job["job_id"])["scan_id"] == 42
+    assert registry.cancel_scan(42)["cancel_requested"] is True
+    deadline = time.monotonic() + 5
+    while registry.get(job["job_id"])["status"] == "RUNNING":
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    assert registry.get(job["job_id"])["status"] == "CANCELLED"
+    assert reached_end == []
+    assert registry.cancel_scan(42) is None
+
+
+def test_cancelled_scan_runner_marks_the_scan_cancelled(db):
+    import pandas as pd
+
+    from app.core.cancellation import CancellationToken, ScanCancelled, cancellation_scope
+    from app.db.models import DuplicateScan, ScanOrchestrationRun
+    from app.services.scan_runner import ScanRunner
+    from test_group_first_scan_orchestration import configuration
+
+    records = pd.DataFrame([
+        {"PART_NO": "A", "DESCRIPTION": "SKF BEARING 6205", "CONTRACT": "S1", "UNIT_MEAS": "PCS"},
+        {"PART_NO": "B", "DESCRIPTION": "SKF BEARING 6205", "CONTRACT": "S1", "UNIT_MEAS": "PCS"},
+    ])
+    token = CancellationToken()
+    token.cancel()
+    with cancellation_scope(token):
+        try:
+            ScanRunner(db, configuration("group_first_primary")).run(
+                records, "cancelled", ["CONTRACT", "UNIT_MEAS"], 75
+            )
+        except ScanCancelled:
+            pass
+        else:
+            raise AssertionError("cancelled scan ran to completion")
+    scan = db.query(DuplicateScan).filter_by(id=token.scan_id).one()
+    assert scan.status == "CANCELLED" and scan.completed_at is not None
+    run = db.query(ScanOrchestrationRun).filter_by(scan_id=scan.id).one()
+    assert run.status == "FAILED"
+
+
+def test_cancel_endpoint_stops_a_scan_left_running_by_an_earlier_process(client, db):
+    from app.db.models import DuplicateScan
+
+    orphan = DuplicateScan(
+        scan_name="orphan", threshold=75, status="RUNNING",
+        model_version="test", selected_fields="[]",
+    )
+    db.add(orphan)
+    db.commit()
+    response = client.post(f"/api/scans/{orphan.id}/cancel")
+    assert response.status_code == 200
+    assert response.json()["status"] == "CANCELLED"
+    db.expire_all()
+    assert db.get(DuplicateScan, orphan.id).status == "CANCELLED"
+    again = client.post(f"/api/scans/{orphan.id}/cancel")
+    assert again.status_code == 409
+    assert client.post("/api/scans/999999/cancel").status_code == 404
+    assert client.post("/api/scans/jobs/unknown/cancel").status_code == 404

@@ -161,8 +161,8 @@ def test_rf1_scan_transaction_state_map_matches_implementation():
         "build_and_persist_identity_neighborhoods"
     ) < source.index("self.db.commit()", source.index("persist_discovery_proposals"))
     assert "complete_scan_orchestration" in source
-    assert source.rindex('self.scans.update_status(scan, "FAILED"') > source.index(
-        "except Exception as exc"
+    assert source.rindex('else "FAILED"') > source.index(
+        "except (Exception, ScanCancelled) as exc"
     )
 
 
@@ -333,12 +333,15 @@ def test_rf13_cache_save_failure_preserves_caller_transaction(db):
     assert cache.load(["new"], "rf13-model") == {}
 
 
-def test_rf14_cancellation_is_explicitly_unsupported_not_false_success():
-    source = inspect.getsource(ScanRunner.run).casefold()
-    assert "cancel" not in source and "cancellation" not in source
+def test_rf14_cancellation_ends_cancelled_never_false_success():
+    source = inspect.getsource(ScanRunner.run)
+    assert "except (Exception, ScanCancelled) as exc" in source
+    assert '"CANCELLED" if isinstance(exc, ScanCancelled) else "FAILED"' in source
+    from app.core.cancellation import ScanCancelled as Cancelled
+    # Ordinary ``except Exception`` fallbacks must not swallow a cancellation.
+    assert not issubclass(Cancelled, Exception)
     text = RECOVERY_VALIDATION.read_text(encoding="utf-8")
-    assert "CANCELLATION GRANULARITY GAP" in text
-    assert "UNSUPPORTED / NOT IMPLEMENTED" in text
+    assert "are cancellable" in text and "publishes no final result" in text
 
 
 def test_rf15_existing_timeout_seam_is_typed_and_never_completed():

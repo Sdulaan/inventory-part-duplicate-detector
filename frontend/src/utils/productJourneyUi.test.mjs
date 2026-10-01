@@ -34,3 +34,20 @@ test('progress labels name the stage in plain words', () => {
   assert.equal(scanJobProgressLabel({ status: 'RUNNING', stage: null }), 'Starting scan')
   assert.equal(scanJobProgressLabel({ status: 'RUNNING', stage: 'SOMETHING_NEW' }), 'Starting scan')
 })
+
+test('a cancelled job stops polling and is reported as cancelled', () => {
+  assert.deepEqual(scanJobOutcome({ status: 'CANCELLED' }), { kind: 'cancelled' })
+  assert.equal(scanJobProgressLabel({ status: 'CANCELLED' }), 'Scan cancelled')
+  assert.equal(
+    scanJobProgressLabel({ status: 'RUNNING', stage: 'DISCOVERY', cancel_requested: true }),
+    'Cancelling — the scan stops at its next safe point',
+  )
+})
+
+test('cancelled scans have their own label and style', async () => {
+  const { isScanProcessing, scanStatusKind, scanStatusLabel } = await import('./productJourneyUi.js')
+  assert.equal(scanStatusLabel('CANCELLED'), 'Cancelled')
+  assert.equal(scanStatusKind('CANCELLED'), 'cancelled')
+  assert.equal(isScanProcessing('RUNNING'), true)
+  assert.equal(isScanProcessing('CANCELLED'), false)
+})

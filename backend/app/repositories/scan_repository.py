@@ -32,7 +32,7 @@ class ScanRepository:
         scan.status = status
         for key, value in counts.items():
             setattr(scan, key, value)
-        if status in {"COMPLETED", "FAILED"}:
+        if status in {"COMPLETED", "FAILED", "CANCELLED"}:
             scan.completed_at = datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(scan)

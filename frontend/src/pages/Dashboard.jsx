@@ -1,16 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { api } from '../api/client'
 import {
   formatScanTime,
+  isScanProcessing,
   orderScans,
   scanStatusKind,
   scanStatusLabel,
 } from '../utils/productJourneyUi'
 
-function ScanRow({ scan, latest = false }) {
+function ScanRow({ scan, latest = false, onCancelled }) {
   const time = scan.completed_at || scan.started_at
+  const [cancelState, setCancelState] = useState('idle')
+  const cancel = async () => {
+    if (!window.confirm(`Cancel "${scan.scan_name || `scan ${scan.id}`}"? The work done so far is discarded and the scan is marked Cancelled.`)) return
+    setCancelState('sending')
+    try {
+      const outcome = await api.postJson(`/api/scans/${scan.id}/cancel`, {})
+      setCancelState(outcome.status === 'CANCELLED' ? 'idle' : 'requested')
+      onCancelled?.()
+    } catch (e) {
+      // 409: it finished or was cancelled meanwhile; the refreshed row shows which.
+      setCancelState(e.status === 409 ? 'idle' : 'error')
+      if (e.status === 409) onCancelled?.()
+    }
+  }
   return <article className={`history-row ${latest ? 'latest-scan' : ''}`}>
     <div>
       <p className="eyebrow">{latest ? 'Latest scan' : `Scan ${scan.id}`}</p>
@@ -21,7 +36,13 @@ function ScanRow({ scan, latest = false }) {
         <span>{scan.completed_at ? 'Completed ' : 'Started '}{formatScanTime(time)}</span>
       </div>
     </div>
-    <Link className="button secondary" to={`/scans/${scan.id}`}>Open results</Link>
+    <div className="history-actions">
+      {isScanProcessing(scan.status) && <button type="button" className="danger" onClick={cancel} disabled={cancelState === 'sending' || cancelState === 'requested'}>
+        {cancelState === 'sending' || cancelState === 'requested' ? 'Cancelling…' : 'Cancel scan'}
+      </button>}
+      <Link className="button secondary" to={`/scans/${scan.id}`}>Open results</Link>
+    </div>
+    {cancelState === 'error' && <p className="warning" role="alert">The cancel request did not reach the server. Try again.</p>}
   </article>
 }
 
@@ -30,6 +51,20 @@ export default function Dashboard() {
   const [health, setHealth] = useState(null)
   const [scans, setScans] = useState(null)
   const [historyError, setHistoryError] = useState(false)
+
+  const loadScans = useCallback(() => api.get('/api/scans').then(
+    history => { setScans(orderScans(history)); setHistoryError(false) },
+    () => { setScans(current => current || []); setHistoryError(true) },
+  ), [])
+
+  // A cancel request is honoured at the scan's next safe point, so poll
+  // until no scan is processing any more.
+  const processing = (scans || []).some(scan => isScanProcessing(scan.status))
+  useEffect(() => {
+    if (!processing) return undefined
+    const timer = window.setInterval(loadScans, 5000)
+    return () => window.clearInterval(timer)
+  }, [processing, loadScans])
 
   useEffect(() => {
     let active = true
@@ -69,13 +104,13 @@ export default function Dashboard() {
       <div className="section-heading"><div><p className="eyebrow">Latest scan</p><h2 id="latest-scan-heading">Most recent activity</h2></div></div>
       {scans === null ? <p role="status" aria-live="polite">Loading scan history…</p> :
         historyError ? <div className="error" role="alert"><b>Scan history could not be loaded.</b><p>Check that the backend is running, then reload this page.</p></div> :
-        latest ? <ScanRow scan={latest} latest /> : <div className="empty actionable-empty"><h3>No scans yet</h3><p>Start a new scan to create the first result.</p><Link className="button" to="/new-scan">Start a new scan</Link></div>}
+        latest ? <ScanRow scan={latest} latest onCancelled={loadScans} key={latest.id} /> : <div className="empty actionable-empty"><h3>No scans yet</h3><p>Start a new scan to create the first result.</p><Link className="button" to="/new-scan">Start a new scan</Link></div>}
     </section>
 
     <section className="panel scan-history" aria-labelledby="recent-scans-heading">
       <div className="section-heading"><div><p className="eyebrow">Recent scans</p><h2 id="recent-scans-heading">Previous scan history</h2></div><span>{scans?.length || 0} total</span></div>
       {scans !== null && scans.length > 0 && completedCount === 0 && <p className="warning">No completed scans are available yet. Processing and failed attempts remain listed below with their actual status.</p>}
-      {scans === null ? <p role="status">Loading recent scans…</p> : recent.length ? <div className="history-list">{recent.map(scan => <ScanRow scan={scan} key={scan.id} />)}</div> :
+      {scans === null ? <p role="status">Loading recent scans…</p> : recent.length ? <div className="history-list">{recent.map(scan => <ScanRow scan={scan} key={scan.id} onCancelled={loadScans} />)}</div> :
         <div className="empty actionable-empty"><h3>{latest ? 'No earlier scans' : 'History is empty'}</h3><p>{latest ? 'The latest scan is currently the only scan.' : 'Completed and attempted scans will appear here.'}</p>{!latest && <Link className="button" to="/new-scan">Start a new scan</Link>}</div>}
     </section>
   </>

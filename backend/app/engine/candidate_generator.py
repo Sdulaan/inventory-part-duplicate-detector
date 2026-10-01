@@ -2,6 +2,7 @@ from itertools import combinations
 
 import pandas as pd
 
+from app.core.cancellation import raise_if_cancelled
 from app.engine.normalizer import normalize_description, normalize_part_no_with_dictionary
 
 MAX_CANDIDATE_PAIRS = 20_000
@@ -59,6 +60,7 @@ def generate_candidate_pairs(df: pd.DataFrame, selected_fields: list[str]):
     # pair is instead left to similarity retrieval, which covers each record.
     limit_reached = False
     for group in groups:
+        raise_if_cancelled()
         indexes = group.index.tolist()
         if len(pairs) + len(indexes) * (len(indexes) - 1) // 2 > MAX_CANDIDATE_PAIRS:
             limit_reached = True

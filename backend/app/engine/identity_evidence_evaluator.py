@@ -27,7 +27,7 @@ from app.services.canonical_record_service import (
 
 
 IDENTITY_EVIDENCE_CONTRACT_VERSION = "identity-evidence-edge-v1"
-IDENTITY_EVIDENCE_EVALUATOR_VERSION = "canonical-identity-evaluator-v7"
+IDENTITY_EVIDENCE_EVALUATOR_VERSION = "canonical-identity-evaluator-v8"
 _COMPONENT_FIELDS = (
     "description_similarity",
     "tfidf_score",
@@ -167,8 +167,11 @@ def evaluate_canonical_identity_relationship(
                     | set(lexical_trust.risk_reasons)
                 )),
             )
+    # A component with nothing to compare (no technical terms on either side)
+    # is absent rather than shown as 0 or 100.
     component_scores = {
         field: float(result.get(field) or 0.0) for field in _COMPONENT_FIELDS
+        if field in result and result[field] is not None
     }
     generic_evidence = {
         "description_1_generic": is_generic_description(left.description),

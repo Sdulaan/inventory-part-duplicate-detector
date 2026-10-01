@@ -128,6 +128,7 @@ def _resolution_input(
             member_record_ids=tuple(sorted(members[item.neighborhood_id])),
             truncated=item.is_truncated,
             degraded=item.degraded,
+            anchor_record_id=item.anchor_record_id,
         )
         for item in neighborhoods.neighborhoods
     ), key=lambda item: item.neighborhood_reference))
@@ -142,6 +143,7 @@ def _resolution_input(
             reason_codes=tuple(sorted(item.classification_reason_codes)),
             evidence_fingerprint=item.evidence_fingerprint,
             generic_only=bool(json.loads(item.generic_evidence_json).get("generic_guard_reason")),
+            deterministic_score=item.deterministic_score,
         ) for item in evidence_result.edges
     ), key=lambda item: (item.record_id_1, item.record_id_2)))
     effective = IdentityGroupReviewService(db).effective_constraints(scan_id)
@@ -166,6 +168,7 @@ def _resolution_input(
             if CONTRACT_GROUP_CONSTRAINT in selected_fields
             else ()
         ),
+
     )
 
 
@@ -178,6 +181,7 @@ def resolution_input_fingerprint(value: IdentityResolutionInput) -> str:
             "members": tuple(refs[item] for item in n.member_record_ids),
             "truncated": n.truncated,
             "degraded": n.degraded,
+            "anchor": refs.get(n.anchor_record_id),
         } for n in value.identity_neighborhoods),
         "evidence": tuple({
             "pair": (refs[e.record_id_1], refs[e.record_id_2]),

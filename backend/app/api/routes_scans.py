@@ -54,7 +54,7 @@ from app.orchestration.contracts import (
 )
 from app.services.scan_service import get_scan, get_scan_candidates, get_scan_rejections, get_scan_warnings, list_scans, run_scan
 from app.services.privacy_service import security_transparency
-from app.services.scan_jobs import ScanJobRegistry, ThreadedBackgroundTasks, get_scan_jobs
+from app.services.scan_jobs import CANCELLED, ScanJobRegistry, ThreadedBackgroundTasks, get_scan_jobs, stop_running_scans
 from app.services.validation_service import parse_column_mapping, parse_selected_fields, read_csv_upload_with_metadata, validate_dataframe
 from app.repositories.custom_field_repository import CustomFieldRepository
 
@@ -351,6 +351,35 @@ def scan_job(job_id: str, jobs: ScanJobRegistry = Depends(get_scan_jobs)):
     if job is None:
         raise HTTPException(404, "Scan job not found; it may have finished before a server restart")
     return job
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_scan_job(job_id: str, jobs: ScanJobRegistry = Depends(get_scan_jobs)):
+    """Cancel a queued or running scan job; it stops at its next checkpoint."""
+    job = jobs.cancel(job_id)
+    if job is None:
+        raise HTTPException(404, "Scan job not found; it may have finished before a server restart")
+    return job
+
+
+@router.post("/{scan_id}/cancel")
+def cancel_scan(scan_id: int, db: Session = Depends(get_db), jobs: ScanJobRegistry = Depends(get_scan_jobs)):
+    """Cancel a processing scan.
+
+    A scan this process is running stops at its next checkpoint and is then
+    marked CANCELLED. A RUNNING scan no job here is producing was left by an
+    earlier process and is marked CANCELLED immediately.
+    """
+    scan = db.get(DuplicateScan, scan_id)
+    if scan is None:
+        raise HTTPException(404, "Scan not found")
+    if scan.status != "RUNNING":
+        raise HTTPException(409, {"category": "scan_not_running", "message": f"Scan is {scan.status.lower()}, not processing"})
+    job = jobs.cancel_scan(scan_id)
+    if job is not None:
+        return {"scan_id": scan_id, "status": "CANCELLING", "job_id": job["job_id"]}
+    stop_running_scans(db, CANCELLED, [scan_id])
+    return {"scan_id": scan_id, "status": "CANCELLED", "job_id": None}
 
 
 def _run_prepared_scan(db, background_tasks, prepared, *, scan_name, threshold, sensitive_mode, scan_mode, product_authority, configuration, triage_scheduler, on_stage=None):

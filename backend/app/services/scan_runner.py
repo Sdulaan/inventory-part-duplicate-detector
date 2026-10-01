@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import pandas as pd
 from sqlalchemy.orm import Session
 
+from app.core.cancellation import ScanCancelled, bind_scan, raise_if_cancelled
 from app.core.config import settings
 from app.core.constants import SOURCE_ROW_INDEX_FIELD
 from app.db.models import CandidateDiscoveryMetadata, HybridRetrievalRun
@@ -147,6 +148,7 @@ class ScanRunner:
             scan_name, selected_fields, threshold, source_type, scan_mode,
             custom_fields_used=custom_fields_used, part_type=part_type,
         )
+        bind_scan(scan.id)
         discovery_run_id = None
         evidence_run_id = None
         orchestration_run_id = None
@@ -155,6 +157,7 @@ class ScanRunner:
 
         def begin_stage(stage):
             nonlocal current_stage, current_stage_started_at
+            raise_if_cancelled()
             current_stage = stage
             current_stage_started_at = datetime.now(timezone.utc)
             if on_stage is not None:
@@ -665,7 +668,8 @@ class ScanRunner:
                 rejections_count=(rejections_found if write_policy.write_legacy_pairs else 0),
                 warnings_count=warning_count,
             ), (len(pairs) if write_policy.write_legacy_pairs else 0)
-        except Exception as exc:
+        # A cancellation is a BaseException, so it is named here explicitly.
+        except (Exception, ScanCancelled) as exc:
             self.db.rollback()
             if evidence_run_id is not None:
                 mark_identity_evidence_failed(self.db, evidence_run_id, exc)
@@ -704,5 +708,8 @@ class ScanRunner:
                     fail_scan_orchestration_audit(
                         self.db, orchestration_run_id=orchestration_run_id
                     )
-            self.scans.update_status(scan, "FAILED", total_records=len(df))
+            self.scans.update_status(
+                scan, "CANCELLED" if isinstance(exc, ScanCancelled) else "FAILED",
+                total_records=len(df),
+            )
             raise

@@ -217,7 +217,7 @@ def test_selected_site_xlsx_contains_only_single_site_groups(db):
     workbook = load_workbook(BytesIO(authority_selected_system_groups_to_xlsx(db, scan.id)))
     assert workbook.sheetnames == [
         "Overview", "Review Groups", "Group Index", "Detailed Data",
-        "Technical Reference",
+        "Deferred Families", "Technical Reference",
     ]
     sheet = workbook["Detailed Data"]
     headers = {cell.value: cell.column for cell in sheet[1]}

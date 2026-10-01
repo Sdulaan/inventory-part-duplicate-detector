@@ -16,6 +16,7 @@ import math
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
+from app.core.cancellation import raise_if_cancelled
 from app.core.config import settings
 from app.engine.identity_evidence_evaluator import (
     evaluate_canonical_identity_relationship,
@@ -26,6 +27,8 @@ logger = logging.getLogger(__name__)
 # Below this many pairs, starting workers costs more than it saves.
 PARALLEL_MIN_PAIRS = 5_000
 _CHUNKS_PER_WORKER = 8
+# Pairs evaluated between cancellation checks on the sequential path.
+_CANCEL_CHECK_INTERVAL = 500
 
 _worker_records = None
 _worker_context = None
@@ -63,12 +66,14 @@ def evaluate_canonical_pairs(records_by_id, context, pairs, *, workers=None):
             logger.warning(
                 "parallel pair evaluation failed; evaluating sequentially", exc_info=True
             )
-    return [
-        evaluate_canonical_identity_relationship(
+    results = []
+    for index, (left, right) in enumerate(pairs):
+        if index % _CANCEL_CHECK_INTERVAL == 0:
+            raise_if_cancelled()
+        results.append(evaluate_canonical_identity_relationship(
             records_by_id[left], records_by_id[right], context
-        )
-        for left, right in pairs
-    ]
+        ))
+    return results
 
 
 def _evaluate_in_pool(records_by_id, context, pairs, workers):
@@ -76,10 +81,18 @@ def _evaluate_in_pool(records_by_id, context, pairs, workers):
     records = {record_id: records_by_id[record_id] for record_id in needed}
     size = max(1, math.ceil(len(pairs) / (workers * _CHUNKS_PER_WORKER)))
     chunks = [pairs[start:start + size] for start in range(0, len(pairs), size)]
-    with ProcessPoolExecutor(
+    pool = ProcessPoolExecutor(
         max_workers=workers,
         mp_context=multiprocessing.get_context("spawn"),
         initializer=_initialise_worker,
         initargs=(records, context),
-    ) as pool:
-        return [result for chunk in pool.map(_evaluate_chunk, chunks) for result in chunk]
+    )
+    try:
+        results = []
+        for chunk in pool.map(_evaluate_chunk, chunks):
+            raise_if_cancelled()
+            results.extend(chunk)
+        return results
+    finally:
+        # On cancellation, drop chunks not yet started instead of waiting.
+        pool.shutdown(wait=True, cancel_futures=True)

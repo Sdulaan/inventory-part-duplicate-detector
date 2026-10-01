@@ -13,6 +13,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.core.cancellation import raise_if_cancelled
 from app.db.models import (
     IdentityDiscoveryRun as IdentityDiscoveryRunRow,
     IdentityNeighborhoodMember as IdentityNeighborhoodMemberRow,
@@ -101,6 +102,7 @@ def _plan_neighborhoods(run, records, proposals, max_members: int):
     for anchor_id in sorted(
         adjacency, key=lambda value: by_id[value].retrieval_order_key
     ):
+        raise_if_cancelled()
         direct = sorted(
             adjacency[anchor_id],
             key=lambda item: (

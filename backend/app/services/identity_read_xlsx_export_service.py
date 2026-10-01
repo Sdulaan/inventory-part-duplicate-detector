@@ -18,7 +18,10 @@ from openpyxl.worksheet.merge import MergedCellRange
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from app.core.constants import FIELD_DEFINITIONS
-from app.db.models import DuplicateScan
+from app.db.models import (
+    DuplicateScan, G2V2DeferredMemberRow, G2V2DeferredSnapshotRow, ScanRecordSnapshot,
+)
+from app.identity_read.contracts import IdentityReadProjectionContract
 from app.services.canonical_record_service import load_scan_record_catalog
 from app.identity_read.key_codec import serialize_versioned_identity_group_key
 from app.identity_read.deterministic_explanations import (
@@ -55,6 +58,7 @@ SHEET_ORDER = (
     "Review Groups",
     "Group Index",
     "Detailed Data",
+    "Deferred Families",
     "Technical Reference",
 )
 GROUP_INDEX_COLUMNS = (
@@ -1428,6 +1432,87 @@ def _write_detailed_data(
         _add_human_decision_dropdown(sheet, "D", 2, sheet.max_row)
 
 
+DEFERRED_FAMILY_COLUMNS = (
+    "Family", "Members", "Why It Was Not Grouped", "Member #",
+    "Part Number", "Description", "Site",
+)
+
+_DEFERRED_REASON_TEXT = {
+    "RESOLUTION_MEMBER_CAP_REACHED": (
+        "More than 20 records match each other in a chain, too many to group "
+        "safely. Review these records manually."
+    ),
+    "TARGETED_EVIDENCE_BUDGET_EXHAUSTED": (
+        "More record-to-record checks were needed than the scan allows for one family."
+    ),
+    "UNRESOLVED_BRIDGE_AMBIGUITY": (
+        "Some records link otherwise separate groups, so the grouping is unclear."
+    ),
+    "UNRESOLVED_OWNERSHIP_AMBIGUITY": (
+        "Some records fit equally well in more than one possible group."
+    ),
+    "INSUFFICIENT_PARTITION_STABILITY": (
+        "The matches did not settle into one clear set of groups."
+    ),
+    "DISCOVERY_TRUNCATION_REQUIRES_LATER_ANALYSIS": (
+        "Matching was cut short for these records, so the grouping is incomplete."
+    ),
+}
+
+
+def _deferred_reason_text(row) -> str:
+    return _DEFERRED_REASON_TEXT.get(
+        row.reason, "The matches could not be grouped automatically."
+    )
+
+
+def _deferred_families(db, snapshot) -> list[dict]:
+    """Deferred families of the exported projection, with their records.
+
+    Deferred records were matched but not placed in a group, so the workbook
+    lists them for manual review instead of reporting only their count.
+    """
+    if snapshot.projection_contract != IdentityReadProjectionContract.G2_V2:
+        return []
+    run_id = snapshot.source_projection_run_id
+    families = {
+        row.id: {"reason": _deferred_reason_text(row), "members": []}
+        for row in db.query(G2V2DeferredSnapshotRow)
+        .filter_by(projection_run_id=run_id)
+        .order_by(G2V2DeferredSnapshotRow.id)
+    }
+    members = (
+        db.query(G2V2DeferredMemberRow.deferred_snapshot_id, ScanRecordSnapshot)
+        .join(ScanRecordSnapshot, ScanRecordSnapshot.id == G2V2DeferredMemberRow.record_id)
+        .filter(G2V2DeferredMemberRow.projection_run_id == run_id)
+        .order_by(G2V2DeferredMemberRow.deferred_snapshot_id, G2V2DeferredMemberRow.member_order)
+    )
+    for family_id, record in members:
+        if family_id in families:
+            families[family_id]["members"].append(record)
+    return [family for family in families.values() if family["members"]]
+
+
+def _write_deferred_families(sheet, families) -> None:
+    _write_header(sheet, DEFERRED_FAMILY_COLUMNS)
+    row_number = 2
+    for index, family in enumerate(families, start=1):
+        reason = family["reason"]
+        for member_number, record in enumerate(family["members"], start=1):
+            _write_row(
+                sheet, row_number,
+                (f"DF-{index:06d}", len(family["members"]), reason, member_number,
+                 record.part_no, record.description, record.contract),
+                wrap_columns=(3, 6),
+            )
+            row_number += 1
+    _set_widths(sheet, (14, 10, 48, 10, 22, 52, 12))
+    if sheet.max_row >= 2:
+        sheet.auto_filter.ref = (
+            f"A1:{get_column_letter(len(DEFERRED_FAMILY_COLUMNS))}{sheet.max_row}"
+        )
+
+
 def _write_technical_reference(sheet, groups, snapshot) -> None:
     sheet.sheet_view.showGridLines = False
     _merge_and_write(
@@ -1564,10 +1649,12 @@ def authority_selected_system_groups_to_xlsx(db, scan_id: int) -> bytes:
     review_groups = workbook.create_sheet("Review Groups")
     group_index = workbook.create_sheet("Group Index")
     detailed_data = workbook.create_sheet("Detailed Data")
+    deferred_families = workbook.create_sheet("Deferred Families")
     technical = workbook.create_sheet("Technical Reference")
     _write_review_groups(review_groups, groups, source_columns, selected_columns)
     _write_group_index(group_index, groups)
     _write_detailed_data(detailed_data, groups, source_columns, selected_columns)
+    _write_deferred_families(deferred_families, _deferred_families(db, snapshot))
     _write_technical_reference(technical, groups, snapshot)
     workbook.active = 0
 

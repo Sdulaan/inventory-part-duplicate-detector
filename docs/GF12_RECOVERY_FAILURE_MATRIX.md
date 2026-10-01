@@ -31,10 +31,11 @@ does not exist in the current production runner.
 
 | Boundary | Failure type | Current behavior | Safe next action | Resume? | Finding |
 |---|---|---|---|---|---|
-| Before DISCOVERY heavy work | `CANCELLATION` | The synchronous production `ScanRunner` accepts no cancellation token/event | `UNSUPPORTED / NOT IMPLEMENTED`; do not report cancellation as success | No | `CANCELLATION GRANULARITY GAP` |
-| During DISCOVERY CPU work | `CANCELLATION` | No cooperative cancellation seam exists | `UNSUPPORTED / NOT IMPLEMENTED`; process restart is operational termination, not same-scan resume | No | `CANCELLATION GRANULARITY GAP` |
-| Between committed stages | `CANCELLATION` | No production cancellation request/state exists | `UNSUPPORTED / NOT IMPLEMENTED`; retry as a new scan after process health is established | No | `CANCELLATION GRANULARITY GAP` |
-| During GF5/GF6 | `CANCELLATION` | No cooperative cancellation seam exists; ordinary exceptions remain fail-closed | `UNSUPPORTED / NOT IMPLEMENTED` as cancellation | No | `CANCELLATION GRANULARITY GAP` |
+| Before DISCOVERY heavy work | `CANCELLATION` | Background job checks its cancellation token at every stage boundary; a queued job never starts | Scan marked `CANCELLED`; no final result | No | PASS |
+| During DISCOVERY CPU work | `CANCELLATION` | Checks inside candidate generation, lexical, character and hybrid retrieval loops | Stops after the running batch; scan `CANCELLED` | No | Bounded granularity |
+| Between committed stages | `CANCELLATION` | Checked before each stage starts | Scan `CANCELLED`; open pipeline runs `FAILED` | No | PASS |
+| During GF4/GF5/GF6 | `CANCELLATION` | Checked per pair-evaluation chunk and per GF5 work unit | Stops after the running chunk/unit; scan `CANCELLED` | No | Bounded granularity |
+| Synchronous `/upload` | `CANCELLATION` | No job, so no cancellation token | `UNSUPPORTED`; the UI uses `/upload-async` | No | OBSERVATION |
 | Production scan timeout | `TIMEOUT` | No production scan-level timeout seam exists | `UNSUPPORTED / NOT IMPLEMENTED`; an operator may restart and submit a new scan | No | OBSERVATION |
 | Isolated GF11 benchmark process timeout | `TIMEOUT` | Parent terminates and joins the worker; result is typed `TIMED_OUT`, never `COMPLETED` | `RECOVERABLE_BY_RESTART` of the isolated benchmark | No | PASS; benchmark-only behavior |
 
