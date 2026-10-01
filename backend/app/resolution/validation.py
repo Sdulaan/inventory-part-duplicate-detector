@@ -36,7 +36,7 @@ from app.resolution.input_index import (
     record_references,
     records_by_id,
 )
-from app.resolution.unit_split import split_oversized_unit, split_reference
+from app.resolution.work_unit_topology import positive_work_units
 from app.resolution.fingerprints import (
     deferred_identity_work_unit_fingerprint,
     identity_conflict_fingerprint,
@@ -107,79 +107,14 @@ def _targeted_request_work_unit_owners(
     value: IdentityResolutionInput,
 ) -> dict[str, frozenset[int]]:
     """Reconstruct deterministic GF5 work-unit ownership from immutable input."""
-    parent = {record.record_id: record.record_id for record in value.canonical_records}
-    active: set[int] = set()
-
-    def find(record_id: int) -> int:
-        while parent[record_id] != record_id:
-            parent[record_id] = parent[parent[record_id]]
-            record_id = parent[record_id]
-        return record_id
-
-    def union(left: int, right: int) -> None:
-        first, second = find(left), find(right)
-        if first != second:
-            low, high = sorted((first, second))
-            parent[high] = low
-
-    for neighborhood in value.identity_neighborhoods:
-        members = neighborhood.member_record_ids
-        active.update(members)
-        for member in members[1:]:
-            union(members[0], member)
-    for edge in value.machine_evidence_edges:
-        active.update((edge.record_id_1, edge.record_id_2))
-        union(edge.record_id_1, edge.record_id_2)
-    for constraint in value.human_constraints:
-        if constraint.constraint_type == IdentityResolutionConstraintType.MUST_LINK:
-            active.update((constraint.record_id_1, constraint.record_id_2))
-            union(constraint.record_id_1, constraint.record_id_2)
-
-    components: dict[int, list[int]] = {}
-    for member in sorted(active):
-        components.setdefault(find(member), []).append(member)
-
-    # A neighbourhood's members are all unioned, so it belongs to exactly one
-    # component; group references by root instead of scanning per component.
-    neighborhoods_by_root: dict[int, list] = {}
-    for neighborhood in value.identity_neighborhoods:
-        if neighborhood.member_record_ids:
-            neighborhoods_by_root.setdefault(
-                find(neighborhood.member_record_ids[0]), []
-            ).append(neighborhood)
-    max_members = value.resolver_configuration.max_resolution_members
-    base_lookup = None
     owners: dict[str, frozenset[int]] = {}
-    for root, members in components.items():
-        member_set = frozenset(members)
-        neighborhoods = neighborhoods_by_root.get(root, ())
-        neighborhood_references = tuple(sorted(
-            item.neighborhood_reference for item in neighborhoods
-        ))
-        reference = (
-            "|".join(neighborhood_references)
-            or f"records:{','.join(map(str, sorted(member_set)))}"
-        )
+    for unit in positive_work_units(value):
+        reference = unit.reference
         _require(
             reference not in owners,
             "targeted request work-unit ownership is ambiguous",
         )
-        owners[reference] = member_set
-        # The resolver splits oversized, untruncated units into pieces that
-        # request targeted evidence under their own references.
-        if len(members) > max_members and not any(item.truncated for item in neighborhoods):
-            if base_lookup is None:
-                base_lookup = evidence_lookup(value, ())
-            pieces, _oversized = split_oversized_unit(
-                tuple(sorted(members)), base_lookup, max_members
-            )
-            for piece in pieces:
-                piece_reference = split_reference(reference, piece)
-                _require(
-                    piece_reference not in owners,
-                    "targeted request work-unit ownership is ambiguous",
-                )
-                owners[piece_reference] = frozenset(piece)
+        owners[reference] = frozenset(unit.member_ids)
     return owners
 
 
@@ -337,6 +272,11 @@ def validate_resolution_input(value: IdentityResolutionInput) -> None:
         _canonical_pair(edge.record_id_1, edge.record_id_2, "machine evidence")
         _require({edge.record_id_1, edge.record_id_2} <= known,
                  "machine evidence references an unknown canonical record")
+        _require(
+            edge.deterministic_score is None
+            or 0.0 <= float(edge.deterministic_score) <= 100.0,
+            "machine evidence score must be between 0 and 100",
+        )
         _nonblank(edge.evidence_fingerprint, "machine evidence fingerprint")
         _require(isinstance(edge.edge_class, IdentityEdgeClass),
                  "machine evidence edge class is not allowlisted")

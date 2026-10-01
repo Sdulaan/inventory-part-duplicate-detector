@@ -18,29 +18,41 @@ from app.resolution.validation import (
     with_resolution_result_fingerprint,
     with_targeted_request_fingerprint,
 )
-from test_identity_resolution_contracts import record, resolution_input, result
+from app.engine.identity_edge import IdentityEdgeClass
+from test_identity_resolution_contracts import edge, record, resolution_input, result
 
 
 def _fixture(unit_sizes, request_counts, *, budget=40):
-    records = tuple(record(index) for index in range(1, sum(unit_sizes) + 1))
+    # Each unit's members are positively connected through one extra hub
+    # record, leaving every pair among the members free for targeted requests.
+    member_total = sum(unit_sizes)
+    records = tuple(
+        record(index) for index in range(1, member_total + len(unit_sizes) + 1)
+    )
     neighborhoods = []
+    edges = []
     units = []
     offset = 0
     for index, size in enumerate(unit_sizes, start=1):
         members = tuple(range(offset + 1, offset + size + 1))
+        hub = member_total + index
         reference = f"unit-{index}"
         units.append((reference, members))
         neighborhoods.append(IdentityResolutionNeighborhood(
             neighborhood_reference=reference,
             scan_id=1,
             discovery_run_id=20,
-            member_record_ids=members,
+            member_record_ids=(*members, hub),
             truncated=False,
             degraded=False,
         ))
+        edges.extend(
+            edge(member, hub, IdentityEdgeClass.REVIEW_SUPPORT) for member in members
+        )
         offset += size
     value = resolution_input(
         len(records),
+        edges,
         neighborhoods=tuple(neighborhoods),
         records=records,
     )

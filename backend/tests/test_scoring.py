@@ -349,7 +349,7 @@ def test_hsn_sac_mismatch_blocks_otherwise_similar_candidate():
     assert "HSN_SAC_CODE differs" in result["explanation"]
 
 
-def test_identical_records_score_the_prediction_cap_whatever_the_part_numbers():
+def test_identical_records_score_100_whatever_the_part_numbers():
     # Customer data: duplicates always carry different part numbers.
     pairs = [
         ("332175", "322834", "Viola x will. Mix 6-Pack"),
@@ -362,7 +362,7 @@ def test_identical_records_score_the_prediction_cap_whatever_the_part_numbers():
         result = score_candidate(
             rec(left, description), rec(right, description), ["CONTRACT", "UNIT_MEAS"]
         )
-        assert result["final_score"] == 95.0
+        assert result["final_score"] == 100.0
         assert result["business_status"] == "LIKELY_DUPLICATE"
 
 
@@ -398,7 +398,7 @@ def test_marked_size_codes_are_size_mismatches_but_bare_letters_are_not():
         assert "small vs large" in result["explanation"]
     hook = score_candidate(rec("1", "S-hook zinc"), rec("2", "S-hook zinc"), ["CONTRACT", "UNIT_MEAS"])
     assert hook["critical_mismatches"] == []
-    assert hook["final_score"] == 95.0
+    assert hook["final_score"] == 100.0
 
 
 def test_number_mismatch_explanation_shows_numbers_as_written():

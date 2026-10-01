@@ -92,7 +92,7 @@ def test_feature_disabled_preserves_standard_candidate_output(db):
     rows = db.query(DuplicateCandidate).filter_by(scan_id=scan.id).all()
     assert len(rows) == 1
     assert db.query(HybridRetrievalRun).filter_by(scan_id=scan.id).count() == 0
-    assert rows[0].similarity_score == 95.0
+    assert rows[0].similarity_score == 100.0
 
 
 def test_standard_candidates_are_not_duplicated_by_hybrid(db):
@@ -495,12 +495,18 @@ def test_scan_api_batches_v2_provenance_and_exposes_quality_metrics(client, db):
     hybrid = [row for row in response.json() if row["candidate_source"] == "HYBRID_RETRIEVAL"]
     assert hybrid
     assert len(statements) <= 6
-    assert any(row["retrieval_tier"] == "TIER_A" for row in hybrid)
+    # Identical descriptions now score 100, so standard blocking reports them
+    # above the 99 threshold before hybrid retrieval can.
+    exact = {
+        tuple(sorted((row["part_no_a"], row["part_no_b"])))
+        for row in response.json() if row["similarity_score"] == 100.0
+    }
+    assert {("AS-B38-FP", "ES/AS-B38-FP"), ("AS-COM-STAT", "KA/ASCOMSTAT1")} <= exact
     assert all(row["retrieval_tier"] in {"TIER_A", "TIER_B", "TIER_C"} for row in hybrid)
     assert all(row["retrieval_priority"] is not None for row in hybrid)
     assert all("EXACT_BLOCK" not in row["retrieval_sources"] for row in hybrid)
     metrics = client.get(f"/api/scans/{scan.id}").json()["hybrid_retrieval"]
-    assert metrics["tier_a_candidates"] >= 1
+    assert "tier_a_candidates" in metrics
     assert "char_vector_candidates_generated" in metrics
     assert "candidate_family_concentration" in metrics
 

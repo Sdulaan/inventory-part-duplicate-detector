@@ -16,6 +16,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import normalize
 from sqlalchemy.orm import Session
 
+from app.core.cancellation import raise_if_cancelled
 from app.core.config import Settings
 from app.core.constants import SOURCE_ROW_INDEX_FIELD
 from app.db.models import LocalEmbeddingCache, utcnow
@@ -1007,6 +1008,7 @@ class HybridCandidateRetriever:
             add_channel(*pair, "TECHNICAL_IDENTITY", rank, float(quality))
 
         prepared = []
+        raise_if_cancelled()
         for (left, right), row in evidence.items():
             channel_ranks = row["channel_ranks"]
             sources = tuple(sorted(channel_ranks))

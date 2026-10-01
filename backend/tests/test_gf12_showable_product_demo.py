@@ -297,7 +297,8 @@ def test_demo7_fixture_exposes_a_three_member_identity_group(demo):
 
 
 def test_demo8_conflict_and_deferred_outcomes_are_distinct(demo):
-    assert [len(item["conflicts"]) for item in demo["outcomes"]] == [3, 3, 3]
+    # Cannot-links between records with no positive link are not conflicts.
+    assert [len(item["conflicts"]) for item in demo["outcomes"]] == [0, 0, 0]
     assert [len(item["deferred_work_units"]) for item in demo["outcomes"]] == [0, 0, 0]
     assert all("deferred_work_units" in item for item in demo["outcomes"])
 
@@ -315,7 +316,7 @@ def test_demo9_result_counts_reconcile(demo):
         assert summary["group_count"] == groups["total"] == resolution.accepted_group_count == projection.accepted_group_count == 4
         assert summary["likely_group_count"] == resolution.likely_group_count == 1
         assert summary["review_group_count"] == resolution.review_group_count == 3
-        assert summary["conflict_count"] == len(outcomes["conflicts"]) == resolution.conflict_count == 3
+        assert summary["conflict_count"] == len(outcomes["conflicts"]) == resolution.conflict_count == 0
         assert summary["deferred_count"] == len(outcomes["deferred_work_units"]) == resolution.deferred_work_unit_count == 0
         assert summary["unassigned_count"] == len(outcomes["unassigned_records"]) == resolution.unassigned_record_count == 8
 
@@ -400,7 +401,7 @@ def test_demo21_run_three_has_stable_product_fingerprint(demo):
 def test_demo22_three_runs_are_semantically_deterministic_with_zero_providers(demo):
     assert len(set(demo["semantic_fingerprints"])) == 1
     assert demo["semantic_fingerprints"] == [
-        "23b062eeb0558152fcac4097b0432b63fc49c19ccb7f414ae844e1f7cd2ae5ec"
+        "6b3087f83d498117f2b578fce41d4800fa5386dda2507d28624c2eac5e2a67c3"
     ] * 3
     assert demo["semantic_export_identities"][0] == demo["semantic_export_identities"][1] == demo["semantic_export_identities"][2]
     signatures = []

@@ -65,6 +65,8 @@ export default function NewScan() {
   const [validation, setValidation] = useState(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelledScan, setCancelledScan] = useState(false)
   const [validatedContext, setValidatedContext] = useState('')
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [columnAssistance, setColumnAssistance] = useState({})
@@ -178,7 +180,7 @@ export default function NewScan() {
     )) return setError({ title: 'Current validation required', message: 'Validate the current file and mapping successfully before running the scan.' })
     scanRequestActive.current = true
     completionRouted.current = false
-    setBusy('scan'); setError(null); setScanJob(null)
+    setBusy('scan'); setError(null); setScanJob(null); setCancelledScan(false)
     try {
       let job = await api.postForm('/api/scans/upload-async', form())
       let failedPolls = 0
@@ -196,6 +198,10 @@ export default function NewScan() {
           setError(scanRequestError(outcome.status, 'scan'))
           return
         }
+        if (outcome.kind === 'cancelled') {
+          setCancelledScan(true)
+          return
+        }
         await new Promise(resolve => window.setTimeout(resolve, SCAN_POLL_MS))
         try {
           job = await api.get(`/api/scans/jobs/${encodeURIComponent(job.job_id)}`)
@@ -206,7 +212,19 @@ export default function NewScan() {
         }
       }
     } catch (e) { setError(scanRequestError(e.status, 'scan')) }
-    finally { scanRequestActive.current = false; setBusy(''); setScanJob(null) }
+    finally { scanRequestActive.current = false; setBusy(''); setScanJob(null); setCancelling(false) }
+  }
+
+  const cancelScan = async () => {
+    if (!scanJob?.job_id || cancelling) return
+    if (!window.confirm('Cancel this scan? The work done so far is discarded and the scan is marked Cancelled.')) return
+    setCancelling(true)
+    try {
+      setScanJob(await api.postJson(`/api/scans/jobs/${encodeURIComponent(scanJob.job_id)}/cancel`, {}))
+    } catch (e) {
+      setCancelling(false)
+      setError({ title: 'Scan could not be cancelled', message: e.status === 404 ? 'The scan job is no longer known to the server. Check Recent scans for its status.' : 'The cancel request did not reach the server. Try again.' })
+    }
   }
 
   const updateMapping = (canonicalField, sourceColumn) => {
@@ -334,6 +352,16 @@ export default function NewScan() {
         <p className="eyebrow">Scan running</p><h2>Processing inventory…</h2>
         <p><b>{scanJob ? scanJobProgressLabel(scanJob) : 'Uploading file'}</b></p><p><b>Elapsed time: {formatElapsed(elapsedSeconds)}</b></p>
         <p>{processingGuidance(elapsedSeconds)}</p>
+        <div className="cancel-row">
+          <button type="button" className="danger" onClick={cancelScan} disabled={!scanJob?.job_id || cancelling || !!scanJob?.cancel_requested}>
+            {cancelling || scanJob?.cancel_requested ? 'Cancelling…' : 'Cancel scan'}
+          </button>
+        </div>
+      </section>}
+      {cancelledScan && <section className="panel scan-cancelled" role="status">
+        <p className="eyebrow">Scan cancelled</p><h2>The scan was stopped</h2>
+        <p>No results were produced. The scan is listed as Cancelled in Recent scans. Run the scan again whenever you are ready.</p>
+        <Link to="/">View recent scans</Link>
       </section>}
       {validation && <section className="panel" aria-live="polite"><h2>{validation.valid ? 'Validation passed' : 'Validation failed'} <span className={validation.valid ? 'badge HIGH' : 'badge LOW'}>{validation.valid ? 'Ready' : 'Blocked'}</span></h2>{validation.valid ? <p>The current CSV and mapping are supported. Run Scan is available while this validation remains current.</p> : <p>Review the warnings and required field mapping below, then validate again.</p>}<div className="metrics"><span>{validation.record_count} records</span><span>{validation.empty_descriptions_count} empty descriptions</span><span>{validation.duplicate_part_number_count} repeated part rows</span><span>{validation.warnings.length} warnings</span></div>{validation.privacy && <div className="security-summary"><b>Security transparency</b><span>Raw CSV stored: {validation.privacy.raw_csv_stored ? 'Yes' : 'No'}</span><span>External AI used: {validation.privacy.external_ai_used ? 'Yes' : 'No'}</span><span>Local processing: {validation.privacy.local_processing_only ? 'Yes' : 'No'}</span><small>SHA-256: {validation.privacy.file_sha256}</small></div>}{validation.warnings.map((w, i) => <p className="warning" key={i}>{w.message}</p>)}</section>}
       {validation?.available_columns && (

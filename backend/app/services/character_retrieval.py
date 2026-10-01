@@ -15,6 +15,7 @@ from enum import Enum
 import numpy as np
 import sklearn
 from sklearn.preprocessing import normalize
+from app.core.cancellation import raise_if_cancelled
 
 
 CHARACTER_RETRIEVAL_CONTRACT_VERSION = "character-retrieval-strategy-v2"
@@ -363,6 +364,7 @@ def retrieve_lsh_directed_neighbors(
     try:
         source = 0
         while source < count:
+            raise_if_cancelled()
             batch_end = min(count, source + 64)
             pools = []
             for anchor in range(source, batch_end):

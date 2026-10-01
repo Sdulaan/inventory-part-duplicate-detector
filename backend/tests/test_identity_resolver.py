@@ -295,26 +295,38 @@ def test_g11_site_and_uom_context_do_not_override_strong_edge():
 
 
 def test_g12_protected_technical_variant_remains_conflict():
-    value = resolver_input([record(1), record(2)], [
-        edge(1, 2, IdentityEdgeClass.CANNOT_LINK)
+    value = resolver_input([record(1), record(2), record(3)], [
+        edge(1, 2, IdentityEdgeClass.CANNOT_LINK),
+        edge(1, 3, IdentityEdgeClass.STRONG_SUPPORT),
+        edge(2, 3, IdentityEdgeClass.STRONG_SUPPORT),
     ])
     result = resolve_identity_groups(value, FakeTargetedProvider())
-    assert result.accepted_groups == ()
+    assert not any({1, 2} <= set(group.member_record_ids) for group in result.accepted_groups)
     assert any(item.conflict_type == IdentityConflictType.PROTECTED_CANNOT_LINK
                for item in result.conflicts)
 
 
-def test_g13_truncated_discovery_is_deferred_and_never_likely():
+def test_g12b_cannot_link_alone_never_creates_a_work_unit_or_conflict():
+    value = resolver_input([record(1), record(2)], [
+        edge(1, 2, IdentityEdgeClass.CANNOT_LINK)
+    ])
+    result = resolve_identity_groups(value, FakeTargetedProvider())
+    assert result.accepted_groups == result.conflicts == result.deferred_work_units == ()
+    assert result.unassigned_record_ids == (1, 2)
+
+
+def test_g13_truncated_discovery_is_review_only_never_likely():
     value = resolver_input(
         [record(1), record(2)],
         [edge(1, 2, IdentityEdgeClass.STRONG_SUPPORT)],
         neighborhoods=(neighborhood("n-truncated", (1, 2), truncated=True),),
     )
     result = resolve_identity_groups(value, FakeTargetedProvider())
-    assert result.accepted_groups == ()
-    assert result.deferred_work_units[0].reason == (
-        DeferredIdentityReason.DISCOVERY_TRUNCATION_REQUIRES_LATER_ANALYSIS
-    )
+    assert result.deferred_work_units == ()
+    [group] = result.accepted_groups
+    assert group.member_record_ids == (1, 2)
+    assert group.status == IdentityGroupHypothesisStatus.POSSIBLE_DUPLICATE_GROUP_REVIEW
+    assert group.evidence_summary.discovery_truncated
 
 
 def test_g14_record_without_discovery_is_unassigned_not_non_duplicate():
@@ -384,10 +396,11 @@ def test_r2_targeted_budget_exhaustion_defers_without_partial_acceptance():
     )
 
 
-def test_r3_overlapping_neighborhood_union_over_member_cap_is_deferred():
+def test_r3_positive_component_over_member_cap_is_deferred_whole():
     value = resolver_input(
         [record(1), record(2), record(3), record(4)],
-        (),
+        [edge(left, right, IdentityEdgeClass.STRONG_SUPPORT)
+         for left, right in ((1, 2), (2, 3), (3, 4))],
         neighborhoods=(
             neighborhood("n-1", (1, 2, 3)), neighborhood("n-2", (3, 4))
         ),
@@ -395,9 +408,54 @@ def test_r3_overlapping_neighborhood_union_over_member_cap_is_deferred():
         pairwise_limit=3,
     )
     result = resolve_identity_groups(value, FakeTargetedProvider())
-    assert result.deferred_work_units[0].reason == (
-        DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED
+    [deferred] = result.deferred_work_units
+    assert deferred.reason == DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED
+    assert deferred.record_ids == (1, 2, 3, 4)
+    assert result.accepted_groups == ()
+
+
+def test_r3a_comparisons_without_positive_evidence_never_join_work_units():
+    # Two strong pairs compared with each other (NON_GROUPABLE, CANNOT_LINK)
+    # and sharing a neighbourhood stay two units, each under the cap.
+    value = resolver_input(
+        [record(1), record(2), record(3), record(4)],
+        [
+            edge(1, 2, IdentityEdgeClass.STRONG_SUPPORT),
+            edge(3, 4, IdentityEdgeClass.STRONG_SUPPORT),
+            edge(2, 3, IdentityEdgeClass.NON_GROUPABLE),
+            edge(1, 4, IdentityEdgeClass.CANNOT_LINK),
+        ],
+        neighborhoods=(neighborhood("n-1", (1, 2, 3, 4)),),
+        max_members=3,
+        pairwise_limit=3,
     )
+    result = resolve_identity_groups(value, FakeTargetedProvider())
+    assert result.deferred_work_units == ()
+    assert memberships(result) == ((1, 2), (3, 4))
+    assert result.metrics.work_unit_count == 2
+
+
+def test_r3b_truncation_only_affects_the_unit_holding_its_anchor():
+    truncated = replace(
+        neighborhood("n-1", (1, 2, 3), truncated=True), anchor_record_id=1
+    )
+    value = resolver_input(
+        [record(1), record(2), record(3), record(4)],
+        [
+            edge(1, 2, IdentityEdgeClass.STRONG_SUPPORT),
+            edge(3, 4, IdentityEdgeClass.STRONG_SUPPORT),
+            edge(1, 3, IdentityEdgeClass.NON_GROUPABLE),
+        ],
+        neighborhoods=(truncated, neighborhood("n-2", (3, 4))),
+    )
+    result = resolve_identity_groups(value, FakeTargetedProvider())
+    statuses_by_members = {
+        group.member_record_ids: group.status for group in result.accepted_groups
+    }
+    assert statuses_by_members == {
+        (1, 2): IdentityGroupHypothesisStatus.POSSIBLE_DUPLICATE_GROUP_REVIEW,
+        (3, 4): IdentityGroupHypothesisStatus.LIKELY_DUPLICATE_GROUP,
+    }
 
 
 def test_r4_disjoint_strong_cliques_are_salvaged_from_one_discovery_family():
@@ -507,42 +565,49 @@ def test_compatible_human_must_link_is_positive_without_overriding_machine_evide
 
 
 def test_gf4_targeted_adapter_preserves_determinism_generic_conflict_and_context():
-    generic_records = (
-        record(1, part_no="A", description="BEARING"),
-        record(2, part_no="B", description="BEARING"),
+    # Records 1 and 2 are positively linked only through record 3, so the
+    # resolver must request targeted evidence for the unevaluated pair (1, 2).
+    bridged = (
+        edge(1, 3, IdentityEdgeClass.REVIEW_SUPPORT),
+        edge(2, 3, IdentityEdgeClass.REVIEW_SUPPORT),
     )
     context = DeterministicIdentityContext(
         "SAME_SITE_DUPLICATE", ("CONTRACT", "UNIT_MEAS", "ACCOUNTING_GROUP")
     )
-    provider = CanonicalEvaluatorTargetedEvidenceProvider(generic_records, context)
-    base = resolver_input(generic_records, (), neighborhoods=(neighborhood("n-1", (1, 2)),))
-    planned = resolve_identity_groups(base, provider)
-    assert len(planned.targeted_evidence_results) == 1
-    assert planned.targeted_evidence_results[0].edge_class == IdentityEdgeClass.REVIEW_SUPPORT
-    assert memberships(planned) == ((1, 2),)
 
-    technical_records = (
+    def targeted(records):
+        result = resolve_identity_groups(
+            resolver_input(records, bridged),
+            CanonicalEvaluatorTargetedEvidenceProvider(records, context),
+        )
+        [pair_result] = [
+            item for item in result.targeted_evidence_results
+            if (item.request.record_id_1, item.request.record_id_2) == (1, 2)
+        ]
+        return result, pair_result
+
+    _generic, generic_pair = targeted((
+        record(1, part_no="A", description="BEARING"),
+        record(2, part_no="B", description="BEARING"),
+        record(3, part_no="C", description="BEARING"),
+    ))
+    assert generic_pair.edge_class == IdentityEdgeClass.REVIEW_SUPPORT
+
+    technical, technical_pair = targeted((
         record(1, part_no="A", description="MOTOR 10A"),
         record(2, part_no="B", description="MOTOR 20A"),
-    )
-    technical = resolve_identity_groups(
-        resolver_input(technical_records, (), neighborhoods=(neighborhood("n-1", (1, 2)),)),
-        CanonicalEvaluatorTargetedEvidenceProvider(technical_records, context),
-    )
-    assert technical.targeted_evidence_results[0].edge_class == IdentityEdgeClass.CANNOT_LINK
-    assert technical.accepted_groups == ()
-    assert any(item.conflict_type == IdentityConflictType.PROTECTED_CANNOT_LINK
-               for item in technical.conflicts)
+        record(3, part_no="C", description="MOTOR"),
+    ))
+    assert technical_pair.edge_class == IdentityEdgeClass.CANNOT_LINK
+    assert not any({1, 2} <= set(group.member_record_ids)
+                   for group in technical.accepted_groups)
 
-    contextual_records = (
+    _contextual, contextual_pair = targeted((
         record(1, part_no="A", description="BEARING", contract="S1", uom="EA"),
         record(2, part_no="B", description="BEARING", contract="S2", uom="BOX"),
-    )
-    contextual = resolve_identity_groups(
-        resolver_input(contextual_records, (), neighborhoods=(neighborhood("n-1", (1, 2)),)),
-        CanonicalEvaluatorTargetedEvidenceProvider(contextual_records, context),
-    )
-    assert contextual.targeted_evidence_results[0].edge_class != IdentityEdgeClass.CANNOT_LINK
+        record(3, part_no="C", description="BEARING", contract="S1", uom="EA"),
+    ))
+    assert contextual_pair.edge_class != IdentityEdgeClass.CANNOT_LINK
 
 
 def test_resolver_is_library_only_and_never_imports_pair_persistence_or_providers(
@@ -581,7 +646,47 @@ def test_bounded_search_metrics_are_reported_for_controlled_six_member_case():
             edges.append(edge(left, right, IdentityEdgeClass.NON_GROUPABLE))
     result = resolve_identity_groups(resolver_input(records, edges), FakeTargetedProvider())
     assert set(memberships(result)) == {(1, 2, 3), (4, 5, 6)}
-    assert result.metrics.work_unit_count == 1
+    # NON_GROUPABLE comparisons do not join the two strong families.
+    assert result.metrics.work_unit_count == 2
     assert 0 < result.metrics.candidate_partitions_explored < 20 * 20 * 41
     assert result.metrics.targeted_evidence_request_count == 0
     assert result.metrics.targeted_evidence_cache_hit_count == 0
+
+
+def test_r3c_review_links_join_units_strongest_first_up_to_the_member_cap():
+    def scored(left, right, edge_class, score):
+        return replace(edge(left, right, edge_class), deterministic_score=score)
+
+    # Two strong triples; a weak review link would merge them into 6 > 4
+    # members, so it is skipped and each triple stays its own unit.
+    edges = [
+        scored(left, right, IdentityEdgeClass.STRONG_SUPPORT, 95.0)
+        for members in ((1, 2, 3), (4, 5, 6))
+        for left, right in __import__("itertools").combinations(members, 2)
+    ]
+    edges.append(scored(3, 4, IdentityEdgeClass.REVIEW_SUPPORT, 62.0))
+    # An isolated weak pair still forms a unit.
+    edges.append(scored(7, 8, IdentityEdgeClass.REVIEW_SUPPORT, 61.0))
+    value = resolver_input(
+        [record(index) for index in range(1, 9)], edges,
+        max_members=4, pairwise_limit=4,
+    )
+    result = resolve_identity_groups(value, FakeTargetedProvider())
+    assert result.deferred_work_units == ()
+    assert result.metrics.work_unit_count == 3
+    assert set(memberships(result)) == {(1, 2, 3), (4, 5, 6), (7, 8)}
+
+def test_r3d_review_links_at_or_above_the_connecting_score_always_connect():
+    from app.resolution.work_unit_topology import CONNECTING_REVIEW_SCORE
+
+    edges = [
+        replace(
+            edge(index, index + 1, IdentityEdgeClass.REVIEW_SUPPORT),
+            deterministic_score=CONNECTING_REVIEW_SCORE,
+        )
+        for index in range(1, 6)
+    ]
+    value = resolver_input([record(index) for index in range(1, 7)], edges)
+    result = resolve_identity_groups(value, FakeTargetedProvider())
+    # Six records exceed the four-record bound on weak links, yet stay one unit.
+    assert result.metrics.work_unit_count == 1

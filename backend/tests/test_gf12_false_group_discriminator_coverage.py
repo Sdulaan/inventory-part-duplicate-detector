@@ -214,7 +214,10 @@ def test_r9_25_multi_component_and_bridge_cannot_override_cannot_link():
         value, CanonicalEvaluatorTargetedEvidenceProvider(records, CONTEXT)
     )
     assert not any(group.member_record_ids == (7, 8, 9) for group in result.accepted_groups)
-    assert result.conflicts
+    # No positive evidence links these records, so they form no work unit and
+    # the cannot-links are not reported as a conflict.
+    assert result.conflicts == ()
+    assert result.unassigned_record_ids == (7, 8, 9)
 
 
 def test_r9_7_r9_26_to_r9_35_static_scope_and_provenance_guards():

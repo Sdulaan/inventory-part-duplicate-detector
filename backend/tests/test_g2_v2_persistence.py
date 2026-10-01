@@ -81,18 +81,21 @@ def test_pure_manifest_persists_reloads_exactly_and_is_idempotent(db):
 
 def test_conflict_deferred_and_unassigned_stay_distinct(db):
     conflict_scan, _d, _e, conflict = resolve_fixture(db, [
-        row("A", "MOTOR 10A"), row("B", "MOTOR 20A")
-    ], [(0, 1)])
+        # A cannot-link is a conflict only between positively connected records.
+        row("A", "SKF BEARING 6205 10A"), row("B", "SKF BEARING 6205 20A"),
+        row("C", "SKF BEARING 6205"),
+    ], [(0, 1), (0, 2), (1, 2)])
     conflict_v2 = build_and_persist_g2_v2_projection(
         db, scan_id=conflict_scan.id, resolution_run_id=conflict.resolution_run_id
     ).manifest
     assert conflict_v2.conflicts and not conflict_v2.groups
     assert db.query(G2V2ConflictSnapshotRow).filter_by(scan_id=conflict_scan.id).count() > 0
 
-    from app.resolution.contracts import ResolverConfiguration
     deferred_scan, _d, _e, deferred = resolve_fixture(db, [
-        row("A", "FILTER A"), row("B", "FILTER A"), row("C", "FILTER A")
-    ], [(0, 1), (1, 2)], ResolverConfiguration(2, 40, 2, "g2-v2-deferred-test"))
+        # C fits with either bearing variant, so its ownership is deferred.
+        row("A", "SKF BEARING 6205 10A"), row("B", "SKF BEARING 6205 20A"),
+        row("C", "SKF BEARING 6205"),
+    ], [(0, 1), (0, 2), (1, 2)])
     deferred_v2 = build_and_persist_g2_v2_projection(
         db, scan_id=deferred_scan.id, resolution_run_id=deferred.resolution_run_id
     ).manifest

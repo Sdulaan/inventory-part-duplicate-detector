@@ -48,7 +48,7 @@ def evaluated():
             "DETERMINISTIC_LIKELY_DUPLICATE",
             "LEXICAL_SUPPORT_NOT_INDEPENDENT",
         ),
-        evaluation_algorithm_version="canonical-identity-evaluator-v7",
+        evaluation_algorithm_version="canonical-identity-evaluator-v8",
         evidence_fingerprint="evidence-fingerprint-10-20",
         deterministic_score=94.41,
         component_scores_json=canonical_json({
@@ -92,7 +92,7 @@ def evaluated():
             "identity_authority": False,
         }),
         evaluation_context_json=canonical_json({
-            "evaluator_version": "canonical-identity-evaluator-v7",
+            "evaluator_version": "canonical-identity-evaluator-v8",
             "edge_classifier_version": "identity-edge-classifier-v1",
             "identity_discriminator_version": "identity-discriminator-v1",
             "scan_mode": "SAME_SITE_DUPLICATE",
@@ -165,7 +165,7 @@ def test_legacy_projection_is_explicitly_partial_without_fabricated_detail(
         edge_class=IdentityEdgeClass.REVIEW_SUPPORT,
         reason_codes=("DETERMINISTIC_REVIEW_CANDIDATE",),
         evidence_summary="ALLOW",
-        evaluator_version="canonical-identity-evaluator-v7",
+        evaluator_version="canonical-identity-evaluator-v8",
         evidence_fingerprint="legacy-evidence",
         evidence_contract_version=version,
         deterministic_score=score,

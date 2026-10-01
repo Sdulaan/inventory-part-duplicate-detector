@@ -27,7 +27,8 @@ class CandidateRepository:
             tfidf_score=result["tfidf_score"],
             fuzzy_score=result["fuzzy_score"],
             part_no_similarity=result["part_no_similarity"],
-            technical_token_score=result["technical_token_score"],
+            # The legacy column is required; no technical terms reads as 0 here.
+            technical_token_score=result["technical_token_score"] or 0.0,
             matched_fields=json.dumps(result["matched_fields"]),
             mismatched_fields=json.dumps(result["mismatched_fields"]),
             explanation=result["explanation"],

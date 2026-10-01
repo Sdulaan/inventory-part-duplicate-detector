@@ -15,7 +15,6 @@ from app.db.models import (
 )
 from app.repositories.resolution_repository import ResolutionRepository
 from app.resolution.contracts import (
-    ResolverConfiguration,
     TARGETED_EVIDENCE_CONTRACT_V1,
     TARGETED_EVIDENCE_CONTRACT_V2,
     TARGETED_EVIDENCE_CONTRACT_VERSION,
@@ -74,15 +73,18 @@ def test_successful_resolution_is_durable_equivalent_and_idempotent(db):
 
 def test_conflict_and_deferred_outcomes_are_persisted(db):
     _scan, _discovery, _evidence, conflict = resolve_fixture(db, [
-        row("A", "MOTOR 10A"), row("B", "MOTOR 20A")
-    ], [(0, 1)])
+        # A cannot-link is a conflict only between positively connected records.
+        row("A", "SKF BEARING 6205 10A"), row("B", "SKF BEARING 6205 20A"),
+        row("C", "SKF BEARING 6205"),
+    ], [(0, 1), (0, 2), (1, 2)])
     assert conflict.status == "COMPLETED"
     assert conflict.result.conflicts
 
-    capped = ResolverConfiguration(2, 40, 2, "test-member-cap-v1")
     _scan, _discovery, _evidence, deferred = resolve_fixture(db, [
-        row("A", "FILTER A"), row("B", "FILTER A"), row("C", "FILTER A")
-    ], [(0, 1), (1, 2)], capped)
+        # C fits with either bearing variant, so its ownership is deferred.
+        row("A", "SKF BEARING 6205 10A"), row("B", "SKF BEARING 6205 20A"),
+        row("C", "SKF BEARING 6205"),
+    ], [(0, 1), (0, 2), (1, 2)])
     assert deferred.status == "COMPLETED"
     assert deferred.result.deferred_work_units
 

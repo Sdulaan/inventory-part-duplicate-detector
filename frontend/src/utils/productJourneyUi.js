@@ -3,6 +3,7 @@ const STATUS_LABELS = {
   RUNNING: 'Processing',
   PROCESSING: 'Processing',
   FAILED: 'Failed',
+  CANCELLED: 'Cancelled',
   VALIDATION_ONLY: 'Validation complete — not yet scanned',
 }
 
@@ -16,7 +17,12 @@ export function scanStatusKind(status) {
   if (value === 'COMPLETED') return 'complete'
   if (value === 'RUNNING' || value === 'PROCESSING') return 'processing'
   if (value === 'FAILED') return 'failed'
+  if (value === 'CANCELLED') return 'cancelled'
   return 'neutral'
+}
+
+export function isScanProcessing(status) {
+  return scanStatusKind(status) === 'processing'
 }
 
 export function orderScans(scans = []) {
@@ -73,6 +79,8 @@ const SCAN_STAGE_LABELS = {
 
 export function scanJobProgressLabel(job) {
   const status = String(job?.status || '').toUpperCase()
+  if (status === 'CANCELLED') return 'Scan cancelled'
+  if (job?.cancel_requested) return 'Cancelling — the scan stops at its next safe point'
   if (status === 'QUEUED') return 'Waiting for another scan to finish'
   if (status === 'COMPLETED') return 'Opening results'
   return SCAN_STAGE_LABELS[String(job?.stage || '').toUpperCase()] || 'Starting scan'
@@ -92,6 +100,7 @@ export function scanJobOutcome(job) {
       : { kind: 'failed', status: 'unexpected' }
   }
   if (status === 'FAILED') return { kind: 'failed', status: job?.error?.status_code ?? 500 }
+  if (status === 'CANCELLED') return { kind: 'cancelled' }
   return { kind: 'failed', status: 'unexpected' }
 }
 

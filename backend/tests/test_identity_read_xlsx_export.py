@@ -1022,3 +1022,36 @@ def test_groups_sharing_part_numbers_are_listed_together():
         "CG-000004 (KPBAS), CG-000006 (10005)"
     )
     assert ordered[5]["presentation"]["related_groups"] == ""
+
+
+def test_deferred_families_sheet_lists_each_deferred_record():
+    from types import SimpleNamespace
+
+    from openpyxl import Workbook
+
+    from app.services.identity_read_xlsx_export_service import (
+        DEFERRED_FAMILY_COLUMNS,
+        _deferred_reason_text,
+        _write_deferred_families,
+    )
+
+    capped = SimpleNamespace(reason="RESOLUTION_MEMBER_CAP_REACHED")
+    unknown = SimpleNamespace(reason="SOMETHING_NEW")
+    assert _deferred_reason_text(capped) != _deferred_reason_text(unknown)
+
+    records = [
+        SimpleNamespace(part_no=f"P-{index}", description=f"Item {index}", contract="BIA")
+        for index in range(3)
+    ]
+    sheet = Workbook().active
+    _write_deferred_families(sheet, [
+        {"reason": _deferred_reason_text(capped), "members": records[:2]},
+        {"reason": _deferred_reason_text(unknown), "members": records[2:]},
+    ])
+    rows = list(sheet.iter_rows(values_only=True))
+    assert rows[0] == DEFERRED_FAMILY_COLUMNS
+    assert [(row[0], row[1], row[3], row[4]) for row in rows[1:]] == [
+        ("DF-000001", 2, 1, "P-0"),
+        ("DF-000001", 2, 2, "P-1"),
+        ("DF-000002", 1, 1, "P-2"),
+    ]

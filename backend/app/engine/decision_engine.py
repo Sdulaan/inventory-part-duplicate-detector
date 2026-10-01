@@ -26,8 +26,15 @@ from app.engine.variant_extractor import (
 REORDERED_NUMBERS_SCORE_CAP = 75.0
 
 
-# The score is a prediction, never a certainty: identical records top out here.
-MAX_PREDICTION_SCORE = 95.0
+MAX_PREDICTION_SCORE = 100.0
+
+# Weights of the score components. A component with nothing to compare (no
+# technical tokens on either side, no selected condition filled on both
+# records) is left out and the remaining weights are renormalized, so missing
+# evidence neither counts as a perfect match nor as a penalty.
+DESCRIPTION_WEIGHT = 0.7
+BUSINESS_WEIGHT = 0.2
+TECHNICAL_WEIGHT = 0.1
 
 
 def confidence_for(score):
@@ -70,7 +77,7 @@ def _field_matches(record_a, record_b, selected_fields):
             matched.append(field)
         else:
             mismatched.append(field)
-    business = (len(matched) / comparable * 100) if comparable else 50.0
+    business = (len(matched) / comparable * 100) if comparable else None
     return matched, mismatched, business
 
 
@@ -225,13 +232,19 @@ def evaluate_candidate(
     part_no = calculate_part_no_similarity(record_a.get("PART_NO"), record_b.get("PART_NO"))
     tokens_a = features_a.technical_mapping()
     tokens_b = features_b.technical_mapping()
-    # Descriptions without numbers or units have nothing to disagree on.
-    token_score = calculate_technical_token_score(tokens_a, tokens_b, no_tokens_score=100.0)
+    token_score = calculate_technical_token_score(tokens_a, tokens_b, no_tokens_score=None)
     _matched, _mismatched, business = _field_matches(record_a, record_b, selected_fields)
 
     # Duplicates are separate records, so their part numbers always differ and
     # digit overlap says nothing about identity; part_no is reported, not weighted.
-    final = description * 0.7 + business * 0.2 + token_score * 0.1
+    components = [(description, DESCRIPTION_WEIGHT)]
+    if business is not None:
+        components.append((business, BUSINESS_WEIGHT))
+    if token_score is not None:
+        components.append((token_score, TECHNICAL_WEIGHT))
+    final = sum(value * weight for value, weight in components) / sum(
+        weight for _value, weight in components
+    )
     final = round(max(0.0, min(MAX_PREDICTION_SCORE, final)), 2)
     explanation = build_explanation(
         record_a, record_b, matched, mismatched, description,

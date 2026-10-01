@@ -30,6 +30,7 @@ BOUNDED_PROXY_DEFINITION = (
 BOUNDED_EXACT_RERANK_VERSION = (
     "v4-full-cosine-score-desc-retrieval-order-key-asc"
 )
+from app.core.cancellation import raise_if_cancelled
 
 
 @dataclass(frozen=True)
@@ -288,6 +289,7 @@ def retrieve_exact_indexed_lexical_neighbors(
             for rows, batch_evaluations, batch_max_union in executor.map(
                 query_batch, starts
             ):
+                raise_if_cancelled()
                 directed.update(rows)
                 evaluations += batch_evaluations
                 max_union = max(max_union, batch_max_union)
@@ -423,6 +425,7 @@ def _exact_rerank_all_candidates(matrix, order_keys, sources, final_top_k):
     directed = {}
     batch_size = SECOND_PASS_BOUNDED_CONFIGURATION.batch_size
     for offset in range(0, len(sources), batch_size):
+        raise_if_cancelled()
         batch = sources[offset:offset + batch_size]
         scores = (matrix[list(batch)] @ matrix.T).tocsr()
         for row, source in enumerate(batch):
@@ -467,6 +470,7 @@ def retrieve_bounded_lexical_neighbors(
     all_sources = tuple(range(stable.shape[0]))
     try:
         for offset in range(0, len(all_sources), PRIMARY_BOUNDED_CONFIGURATION.batch_size):
+            raise_if_cancelled()
             sources = all_sources[offset:offset + PRIMARY_BOUNDED_CONFIGURATION.batch_size]
             pools, visits, unique = _bounded_candidate_pools(
                 stable, sources, csc, posting_sizes,

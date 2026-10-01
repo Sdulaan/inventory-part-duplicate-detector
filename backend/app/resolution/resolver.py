@@ -7,6 +7,7 @@ from itertools import combinations
 from math import comb
 from typing import Protocol
 
+from app.core.cancellation import raise_if_cancelled
 from app.engine.identity_edge import IdentityEdgeClass
 from app.engine.identity_evidence_evaluator import (
     DeterministicIdentityContext,
@@ -33,7 +34,7 @@ from app.resolution.contracts import (
     TargetedEvidenceResult,
 )
 from app.resolution.fingerprints import fingerprint_payload
-from app.resolution.unit_split import split_oversized_unit, split_reference
+from app.resolution.work_unit_topology import positive_work_units
 from app.resolution.input_index import (
     evidence_lookup,
     human_cannot_links,
@@ -97,17 +98,11 @@ class _WorkUnit:
     neighborhood_references: tuple[str, ...]
     truncated: bool
     degraded: bool
-    # Set for a piece of an oversized unit (see unit_split).
-    reference_override: str | None = None
+    reference: str
 
 
 def _unit_reference(unit) -> str:
-    if unit.reference_override:
-        return unit.reference_override
-    return (
-        "|".join(unit.neighborhood_references)
-        or f"records:{','.join(map(str, unit.member_ids))}"
-    )
+    return unit.reference
 
 
 @dataclass
@@ -193,45 +188,16 @@ class _UnionFind:
 
 def _work_units(value: IdentityResolutionInput) -> tuple[_WorkUnit, ...]:
     semantic_keys = _semantic_record_keys(value)
-    record_ids = tuple(record.record_id for record in value.canonical_records)
-    union = _UnionFind(record_ids)
-    active = set()
-    for neighborhood in value.identity_neighborhoods:
-        members = neighborhood.member_record_ids
-        active.update(members)
-        for member in members[1:]:
-            union.union(members[0], member)
-    for edge in value.machine_evidence_edges:
-        active.update((edge.record_id_1, edge.record_id_2))
-        union.union(edge.record_id_1, edge.record_id_2)
-    for constraint in value.human_constraints:
-        if constraint.constraint_type == IdentityResolutionConstraintType.MUST_LINK:
-            active.update((constraint.record_id_1, constraint.record_id_2))
-            union.union(constraint.record_id_1, constraint.record_id_2)
-
-    components = {}
-    for member in sorted(active):
-        components.setdefault(union.find(member), []).append(member)
-    # Every neighbourhood's members were unioned together, so a neighbourhood
-    # belongs to exactly one component; assign it there directly rather than
-    # testing every neighbourhood against every component.
-    neighborhoods_by_root = {}
-    for item in value.identity_neighborhoods:
-        if item.member_record_ids:
-            neighborhoods_by_root.setdefault(
-                union.find(item.member_record_ids[0]), []
-            ).append(item)
-    output = []
-    for root, members in components.items():
-        neighborhoods = neighborhoods_by_root.get(root, ())
-        output.append(_WorkUnit(
-            member_ids=tuple(sorted(members)),
-            neighborhood_references=tuple(sorted(
-                item.neighborhood_reference for item in neighborhoods
-            )),
-            truncated=any(item.truncated for item in neighborhoods),
-            degraded=any(item.degraded for item in neighborhoods),
-        ))
+    output = [
+        _WorkUnit(
+            member_ids=unit.member_ids,
+            neighborhood_references=unit.neighborhood_references,
+            truncated=unit.truncated,
+            degraded=unit.degraded,
+            reference=unit.reference,
+        )
+        for unit in positive_work_units(value)
+    ]
     return tuple(sorted(
         output,
         key=lambda item: _semantic_member_key(semantic_keys, item.member_ids),
@@ -398,9 +364,11 @@ def _build_group(value, unit, members, lookup, targeted_results):
             and generic_count == counts[IdentityEdgeClass.REVIEW_SUPPORT]
         ),
     )
+    # Truncated discovery may have missed a member, so such a group is only
+    # ever offered for review.
     status = (
         IdentityGroupHypothesisStatus.LIKELY_DUPLICATE_GROUP
-        if counts[IdentityEdgeClass.STRONG_SUPPORT] == possible
+        if counts[IdentityEdgeClass.STRONG_SUPPORT] == possible and not unit.truncated
         else IdentityGroupHypothesisStatus.POSSIBLE_DUPLICATE_GROUP_REVIEW
     )
     summary = GroupEvidenceSummary(
@@ -748,13 +716,6 @@ def _resolve_unit(value, unit, blocked, provider) -> _UnitOutcome:
     """
     counters = _ExecutionCounters()
     outcome = _UnitOutcome([], [], [], [], [], counters)
-    if unit.truncated:
-        outcome.deferred.append(_deferred(
-            value, unit,
-            DeferredIdentityReason.DISCOVERY_TRUNCATION_REQUIRES_LATER_ANALYSIS,
-            "truncated discovery may affect membership or ownership",
-        ))
-        return outcome
 
     base_lookup = _effective_lookup(value, ())
     schedulable = replace(
@@ -859,45 +820,19 @@ def resolve_identity_groups(
         protected = _protected_conflict(value, unit, base_lookup)
         if protected is not None:
             conflicts.append(protected)
-        max_members = value.resolver_configuration.max_resolution_members
-        if len(unit.member_ids) > max_members and not unit.truncated:
-            pieces, oversized = split_oversized_unit(
-                unit.member_ids, base_lookup, max_members
-            )
-            for members in oversized:
-                deferred.append(_deferred(
-                    value, unit, DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED,
-                    "work unit still exceeds max_resolution_members after splitting "
-                    "on its weakest positive links",
-                    member_ids=members,
-                ))
-            # Records with no positive link were never checked pairwise, so
-            # they stay deferred rather than silently becoming unassigned.
-            placed = {member for group in (*pieces, *oversized) for member in group}
-            unplaced = tuple(member for member in unit.member_ids if member not in placed)
-            if unplaced:
-                deferred.append(_deferred(
-                    value, unit, DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED,
-                    "records of an oversized work unit without positive links "
-                    "were not checked pairwise",
-                    member_ids=unplaced,
-                ))
-            parent_reference = _unit_reference(unit)
-            for members in pieces:
-                jobs.append((replace(
-                    unit, member_ids=members,
-                    reference_override=split_reference(parent_reference, members),
-                ), frozenset(blocked)))
-            continue
-        if len(unit.member_ids) > max_members:
+        # Units hold only positively connected records, so one over the cap
+        # is a genuine dense identity family and is deferred whole rather
+        # than cut apart.
+        if len(unit.member_ids) > value.resolver_configuration.max_resolution_members:
             deferred.append(_deferred(
                 value, unit, DeferredIdentityReason.RESOLUTION_MEMBER_CAP_REACHED,
-                "overlapping discovery work unit exceeds max_resolution_members",
+                "positively connected work unit exceeds max_resolution_members",
             ))
             continue
         jobs.append((unit, frozenset(blocked)))
 
     for unit, blocked in jobs:
+        raise_if_cancelled()
         outcome = _resolve_unit(value, unit, blocked, targeted_evidence_provider)
         accepted.extend(outcome.accepted)
         conflicts.extend(outcome.conflicts)

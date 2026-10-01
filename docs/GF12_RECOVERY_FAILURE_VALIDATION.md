@@ -76,16 +76,23 @@ Detailed outcomes are in [GF12_RECOVERY_FAILURE_MATRIX.md](GF12_RECOVERY_FAILURE
 
 ## Cancellation behavior
 
-The `/upload` production path invokes the synchronous `ScanRunner`; it is not a
-background scan worker and accepts no cancellation token/event. Cancellation
-before discovery, during CPU-bound discovery, between committed boundaries, and
-during GF5/GF6 is therefore `UNSUPPORTED / NOT IMPLEMENTED`. This is a
-**CANCELLATION GRANULARITY GAP**, not a false claim of cancellation safety.
+Background scans (`/upload-async`) are cancellable. `POST
+/api/scans/jobs/{job_id}/cancel` and `POST /api/scans/{scan_id}/cancel` set a
+cancellation token bound to the scan's worker thread (`app/core/cancellation.py`).
+The pipeline checks it at every stage boundary and inside the long loops of
+candidate generation, lexical and character retrieval, hybrid retrieval,
+neighbourhood building, pair evaluation (per chunk on the process pool, every
+500 pairs sequentially) and GF5 resolution (per work unit). At the next check
+`ScanCancelled` is raised; it derives from `BaseException`, so no `except
+Exception` fallback can swallow it or turn it into a success. `ScanRunner.run`
+rolls back, fails the open pipeline runs, marks the scan `CANCELLED`, and
+publishes no final result. A queued job that is cancelled never starts.
 
-Because no cancellation boundary returns from a production worker, worker-leak
-validation is not applicable there. Ordinary injected exceptions do stop the
-synchronous call, roll back the active transaction, mark the scan failed, and
-publish no final result.
+Granularity remains bounded rather than instant: a single numeric batch or one
+process-pool chunk already running finishes before the check is reached. The
+synchronous `/upload` path has no job and is not cancellable. A scan left
+RUNNING by an earlier process can be cancelled through the scan endpoint, which
+marks it `CANCELLED` directly; at startup any such scan is marked `FAILED`.
 
 ## Timeout behavior
 
