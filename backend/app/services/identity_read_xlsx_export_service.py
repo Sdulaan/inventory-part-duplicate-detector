@@ -60,6 +60,7 @@ SHEET_ORDER = (
 GROUP_INDEX_COLUMNS = (
     "Group", "Evidence Tier", "Match Strength", "Match Band", "Members", "Sites",
     "Review Consideration", "Human Decision", "Human Comment",
+    "Same Parts in Other Groups",
 )
 # Review Groups layout: compact group context, per-member review and detail,
 # then group explanation and pair evidence at the far right.
@@ -440,6 +441,62 @@ def _sites(member_rows) -> str:
         if str(row.get("site_or_contract") or "").strip()
     })
     return ", ".join(values) or "Not provided"
+
+
+_MAX_RELATED_GROUPS_LISTED = 10
+
+
+def _order_related_groups(groups) -> list:
+    """List groups that share a part number one below another.
+
+    When Site is a duplicate-checking condition the same parts form a separate
+    group at each site; keeping those groups together lets the reviewer see
+    every site at once. Families keep first-appearance order, groups keep their
+    order within a family, and labels are unchanged. Each item gets ``family``
+    (used for shading) and a ``related_groups`` presentation value.
+    """
+    parent = list(range(len(groups)))
+
+    def find(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    first_group_by_part = {}
+    for index, item in enumerate(groups):
+        for row in item["member_rows"]:
+            part_no = str(row.get("part_no") or "").strip().upper()
+            if not part_no:
+                continue
+            if part_no not in first_group_by_part:
+                first_group_by_part[part_no] = index
+                continue
+            left, right = find(first_group_by_part[part_no]), find(index)
+            if left != right:
+                # The smaller index stays root, so a family sorts by first appearance.
+                parent[max(left, right)] = min(left, right)
+
+    families = {}
+    for index in range(len(groups)):
+        families.setdefault(find(index), []).append(index)
+    ordered = []
+    for family_number, root in enumerate(sorted(families)):
+        members = families[root]
+        for index in members:
+            others = [
+                f"{groups[other]['presentation']['label']} "
+                f"({groups[other]['presentation']['sites']})"
+                for other in members if other != index
+            ]
+            if len(others) > _MAX_RELATED_GROUPS_LISTED:
+                hidden = len(others) - _MAX_RELATED_GROUPS_LISTED
+                others = others[:_MAX_RELATED_GROUPS_LISTED] + [f"+{hidden} more"]
+            item = groups[index]
+            item["family"] = family_number
+            item["presentation"]["related_groups"] = ", ".join(others)
+            ordered.append(item)
+    return ordered
 
 
 def _group_presentation(label: str, group, state: dict | None, member_rows) -> dict:
@@ -924,11 +981,16 @@ def _write_column_colour_key(sheet, start_row: int) -> None:
             "All other columns. These show group details, record information and "
             "review columns, and were not used as duplicate-checking conditions.",
         ),
+        (
+            _GROUP_FILLS[0], "Shading",
+            "Groups that share a part number, such as the same parts at other "
+            "sites, are listed one below another and share a shade on Review Groups.",
+        ),
     ), start=start_row + 1):
         _merge_and_write(
             sheet, f"A{row_number}:B{row_number}", label,
             fill=swatch_fill,
-            font=Font(color=_WHITE, bold=True),
+            font=Font(color=_TEXT if swatch_fill in _GROUP_FILLS else _WHITE, bold=True),
             alignment=Alignment(horizontal="center", vertical="center"),
         )
         _merge_and_write(
@@ -1148,14 +1210,15 @@ def _write_group_index(sheet, groups) -> None:
             sheet, row_number,
             (p["label"], p["evidence"], p["match_strength"], p["match_band"],
              p["members"], p["sites"], p["review_consideration"],
-             p["human_decision"], p["human_comment"]),
-            wrap_columns=(2, 4, 6, 7, 8, 9),
+             p["human_decision"], p["human_comment"],
+             p.get("related_groups", "")),
+            wrap_columns=(2, 4, 6, 7, 8, 9, 10),
         )
         if p["match_strength"] is not None:
             sheet.cell(row_number, 3).number_format = _SCORE_NUMBER_FORMAT
         _apply_match_band_style(sheet.cell(row_number, 4), p["match_band"])
         sheet.row_dimensions[row_number].height = 26
-    _set_widths(sheet, (14, 16, 13, 15, 10, 18, 40, 26, 32))
+    _set_widths(sheet, (14, 16, 13, 15, 10, 18, 40, 26, 32, 36))
     sheet.freeze_panes = "E2"
     if groups:
         sheet.auto_filter.ref = (
@@ -1273,7 +1336,8 @@ def _write_review_groups(
                     _MAX_ROW_HEIGHT_POINTS,
                     round(sheet.row_dimensions[row_number].height + extra_per_row, 1),
                 )
-        fill = _GROUP_FILLS[group_index % len(_GROUP_FILLS)]
+        # Related groups (same parts, other sites) share one shade.
+        fill = _GROUP_FILLS[item.get("family", group_index) % len(_GROUP_FILLS)]
         for row_number in range(start_row, end_row + 1):
             for column_number in range(1, len(columns) + 1):
                 _apply_styles(
@@ -1490,6 +1554,7 @@ def authority_selected_system_groups_to_xlsx(db, scan_id: int) -> bytes:
         )
         strength_distribution[key] += 1
 
+    groups = _order_related_groups(groups)
     source_columns = _ordered_source_columns(scan.selected_fields, extra_columns)
     selected_columns = _selected_source_columns(scan.selected_fields, extra_columns)
     workbook = Workbook()
@@ -1739,6 +1804,7 @@ def authority_selected_reviewed_identities_to_xlsx(db, scan_id: int) -> bytes:
         )
         strength_distribution[key] += 1
 
+    groups = _order_related_groups(groups)
     source_columns = _ordered_source_columns(scan.selected_fields, extra_columns)
     selected_columns = _selected_source_columns(scan.selected_fields, extra_columns)
     workbook = Workbook()

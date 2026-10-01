@@ -31,6 +31,7 @@ from app.services.identity_read_xlsx_export_service import (
     TECHNICAL_REFERENCE_HEADER_ROW,
     WORKBOOK_NOTICE,
     _member_pair_columns,
+    _order_related_groups,
     _score_percentage,
     _write_review_groups,
     authority_selected_system_groups_to_xlsx,
@@ -972,6 +973,8 @@ def test_overview_explains_green_and_blue_columns(db):
     assert overview["A16"].value == "Blue"
     assert overview["A16"].fill.fgColor.rgb.endswith("1F4E78")
     assert "not used as duplicate-checking conditions" in overview["C16"].value
+    assert overview["A17"].value == "Shading"
+    assert "same parts at other sites" in overview["C17"].value
     assert overview["A18"].value == "FINDINGS AT A GLANCE"
 
 
@@ -992,3 +995,30 @@ def test_part_relationships_show_part_numbers_only():
     })
     assert rendered["S::1"][0][0] == "LITHIUM-ION BATTERY ↔ LITHIUM-ION BATTERY 02-1"
     assert rendered["S::2"][0][0] == "LITHIUM-ION BATTERY 02-1 ↔ LITHIUM-ION BATTERY"
+
+
+def test_groups_sharing_part_numbers_are_listed_together():
+    def group(label, site, *part_numbers):
+        return {
+            "presentation": {"label": label, "sites": site},
+            "member_rows": tuple({"part_no": part_no} for part_no in part_numbers),
+        }
+
+    ordered = _order_related_groups([
+        group("CG-000001", "10003", "327069", "327068"),
+        group("CG-000002", "10003", "328354", "328657"),
+        group("CG-000003", "10003", "900001", "900002"),
+        group("CG-000004", "KPBAS", "327069", "327068"),
+        group("CG-000005", "10007", "328354 ", "328657"),
+        group("CG-000006", "10005", "327068", "327069"),
+    ])
+
+    assert [item["presentation"]["label"] for item in ordered] == [
+        "CG-000001", "CG-000004", "CG-000006",
+        "CG-000002", "CG-000005", "CG-000003",
+    ]
+    assert [item["family"] for item in ordered] == [0, 0, 0, 1, 1, 2]
+    assert ordered[0]["presentation"]["related_groups"] == (
+        "CG-000004 (KPBAS), CG-000006 (10005)"
+    )
+    assert ordered[5]["presentation"]["related_groups"] == ""
