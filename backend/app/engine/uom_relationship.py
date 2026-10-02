@@ -98,6 +98,18 @@ def _normalized(value) -> str:
     return "" if text in {"nan", "nat"} else text
 
 
+def canonical_uom(value) -> str:
+    """Comparable UOM identity: aliases of one unit (PCS, EA) compare equal.
+
+    Missing or wildcard values return "" so callers can treat them as unknown.
+    """
+    text = _normalized(value)
+    if text in _MISSING_OR_WILDCARD:
+        return ""
+    unit = _ALIASES.get(text)
+    return unit[0] if unit else text
+
+
 def classify_uom_relationship(left, right) -> UomEvidence:
     left_value = _normalized(left)
     right_value = _normalized(right)

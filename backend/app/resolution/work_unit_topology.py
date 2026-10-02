@@ -3,6 +3,14 @@
 Only positive identity evidence connects records into a work unit: machine
 STRONG_SUPPORT and REVIEW_SUPPORT edges and human MUST_LINK constraints.
 
+Default policy (``POSITIVE_CLASS_ONLY``): every positive edge connects. Whether
+a pair is positive is decided once, by classification; the numeric match
+strength does not decide topology a second time, and a positive component is
+never cut to fit a size bound. A unit over the member cap is deferred whole.
+
+``SCORE_GATED_WEAK_LINKS`` keeps the earlier dev behaviour below for
+comparison only; it is not the default:
+
 STRONG_SUPPORT edges, MUST_LINK constraints and REVIEW_SUPPORT edges scoring
 at least ``CONNECTING_REVIEW_SCORE`` always connect. Weaker review links are
 then added strongest first, but only while the resulting unit stays within
@@ -46,6 +54,10 @@ from app.resolution.contracts import (
 # earlier reviewed scan rose from 94 to 177 of 335.
 CONNECTING_REVIEW_SCORE = 80.0
 WEAK_LINK_MAX_UNIT_MEMBERS = 4
+
+POSITIVE_CLASS_ONLY = "POSITIVE_CLASS_ONLY"
+SCORE_GATED_WEAK_LINKS = "SCORE_GATED_WEAK_LINKS"
+TOPOLOGY_POLICY = POSITIVE_CLASS_ONLY
 
 
 @dataclass(frozen=True)
@@ -91,9 +103,12 @@ def positive_work_units(value: IdentityResolutionInput) -> tuple[WorkUnitTopolog
     for edge in value.machine_evidence_edges:
         if edge.edge_class == IdentityEdgeClass.STRONG_SUPPORT or (
             edge.edge_class == IdentityEdgeClass.REVIEW_SUPPORT
-            # Edges without a persisted score (legacy inputs) keep connecting.
-            and (edge.deterministic_score is None
-                 or edge.deterministic_score >= CONNECTING_REVIEW_SCORE)
+            and (
+                TOPOLOGY_POLICY == POSITIVE_CLASS_ONLY
+                # Edges without a persisted score (legacy inputs) keep connecting.
+                or edge.deterministic_score is None
+                or edge.deterministic_score >= CONNECTING_REVIEW_SCORE
+            )
         ):
             union(edge.record_id_1, edge.record_id_2)
         elif edge.edge_class == IdentityEdgeClass.REVIEW_SUPPORT:

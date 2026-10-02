@@ -141,7 +141,7 @@ def run_load_checks(client):
 
 def main():
     report_path = ROOT / "docs" / "production_readiness_results.json"
-    os.environ.setdefault("MAX_CSV_RECORDS", "100000")
+    os.environ.setdefault("MAX_CSV_RECORDS", "500000")
     with TestClient(app) as client:
         report = {
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

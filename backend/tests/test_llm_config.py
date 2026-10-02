@@ -87,7 +87,7 @@ def test_legacy_settings_defaults_remain_compatible():
     assert configuration.default_threshold == 75
     assert configuration.environment == "development"
     assert configuration.max_upload_bytes == 52428800
-    assert configuration.max_csv_records == 100000
+    assert configuration.max_csv_records == 500000
     assert configuration.database_url == f"sqlite:///{expected_database_path}"
     assert configuration.cors_origins == [
         "http://localhost:5173",
@@ -138,7 +138,7 @@ def test_legacy_settings_environment_overrides_remain_compatible(monkeypatch):
     assert reset.default_threshold == 75
     assert reset.environment == "development"
     assert reset.max_upload_bytes == 52428800
-    assert reset.max_csv_records == 100000
+    assert reset.max_csv_records == 500000
     assert reset.database_url == f"sqlite:///{expected_database_path}"
     assert reset.cors_origins == [
         "http://localhost:5173",

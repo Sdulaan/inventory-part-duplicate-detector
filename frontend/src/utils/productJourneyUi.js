@@ -125,7 +125,7 @@ export function scanRequestError(status, phase = 'scan') {
   return {
     title: validating ? 'File could not be validated' : 'Unexpected scan response',
     message: validating
-      ? 'Use a supported CSV with the required columns, review the mapping, and try validation again.'
+      ? 'Use a supported CSV or XLSX file with the required columns, review the mapping, and try validation again.'
       : 'The scan result could not be confirmed. Check Recent scans before trying again.',
   }
 }

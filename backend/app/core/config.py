@@ -29,7 +29,7 @@ class Settings(BaseModel):
         )
     )
     max_csv_records: int = Field(
-        default_factory=lambda: os.getenv("MAX_CSV_RECORDS", "100000")
+        default_factory=lambda: os.getenv("MAX_CSV_RECORDS", "500000")
     )
     database_url: str = Field(
         default_factory=lambda: os.getenv(

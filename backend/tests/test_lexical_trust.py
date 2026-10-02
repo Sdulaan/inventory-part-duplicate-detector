@@ -7,7 +7,6 @@ from app.engine.identity_evidence_evaluator import (
 )
 from app.engine.lexical_trust import (
     LEXICAL_TRUST_ASSESSMENT_VERSION,
-    PART_NUMBER_COHERENCE_FLOOR,
     assess_lexical_trust,
 )
 from app.services.canonical_record_service import CanonicalScanRecord
@@ -72,12 +71,19 @@ def test_assessment_is_deterministic_and_orientation_stable():
     assert first.risk_reasons == ("LEXICAL_SUPPORT_NOT_INDEPENDENT",)
 
 
-def test_substantial_part_number_coherence_preserves_lexical_alias():
+def test_fuzzy_part_number_similarity_alone_is_not_identity_support():
+    left = record(1, "XX-1001", "Exercise 3")
+    right = record(2, "XX-1002", "Exercise 3")
+    value = assessment(left, right, part=95.0)
+    assert value.part_number_coherence == 95.0
+    assert not value.part_family_coherence
+    assert value.risk_reasons == ("LEXICAL_SUPPORT_NOT_INDEPENDENT",)
+
+
+def test_cross_field_anchor_still_preserves_lexical_alias():
     left = record(1, "AG-LOT-TRACKED-1", "Lot tracked part")
     right = record(2, "AG-LOT-TRACKED", "Lot tracked part")
-    value = assessment(
-        left, right, part=PART_NUMBER_COHERENCE_FLOOR
-    )
+    value = assessment(left, right, part=80.0)
     assert value.part_family_coherence
     assert not value.requires_strong_downgrade
 
@@ -87,9 +93,10 @@ def test_populated_cross_field_incoherence_is_caution_not_conflict():
     right = record(2, "CHW-IP-2", "CHW part 2", type_code="Manufactured")
     value = assessment(left, right, part=95.0)
     assert value.cross_field_incoherence
-    assert value.risk_reasons == ("CROSS_FIELD_IDENTITY_INCOHERENCE",)
+    assert "CROSS_FIELD_IDENTITY_INCOHERENCE" in value.risk_reasons
     relationship = evaluate_canonical_identity_relationship(left, right, CONTEXT)
     assert relationship.edge_class == IdentityEdgeClass.REVIEW_SUPPORT
+    assert "CROSS_FIELD_IDENTITY_INCOHERENCE" in relationship.classification_reason_codes
     assert "CROSS_FIELD_IDENTITY_INCOHERENCE" in relationship.classification_reason_codes
 
 

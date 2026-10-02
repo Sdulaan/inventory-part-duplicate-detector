@@ -201,8 +201,12 @@ def _parse_upload_dataframe(filename: str | None, content: bytes) -> pd.DataFram
     try:
         if is_xlsx:
             # calamine reads large workbooks several times faster than openpyxl
-            # and yields the same string cell values.
-            return pd.read_excel(io.BytesIO(content), dtype=str, engine="calamine")
+            # and yields the same string cell values. Keep XLSX uploads usable
+            # in environments where the optional reader has not been installed.
+            try:
+                return pd.read_excel(io.BytesIO(content), dtype=str, engine="calamine")
+            except ImportError:
+                return pd.read_excel(io.BytesIO(content), dtype=str, engine="openpyxl")
         text = _decode_csv_bytes(content)
         return pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=True)
     except Exception as exc:

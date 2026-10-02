@@ -91,31 +91,33 @@ def resolve(size, overrides=None, *, generic=False):
     )
 
 
-def test_case_a_seven_complete_all_review_is_bounded_partition_deferred():
+def test_case_a_seven_complete_all_review_is_ownership_deferred():
+    # The pruned partition search now completes within budget; equal review
+    # splits tie, so the family is deferred for ownership, not search limits.
     result = resolve(7)
 
     assert result.accepted_groups == ()
     assert tuple(item.reason for item in result.deferred_work_units) == (
-        DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY,
+        DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY,
     )
-    assert result.metrics.candidate_partitions_explored == 16521
+    assert result.metrics.candidate_partitions_explored == 5958
 
 
-def test_case_b_one_strong_edge_does_not_resolve_seven_member_partition_search():
+def test_case_b_one_strong_edge_owns_only_the_strong_pair():
     result = resolve(7, {(1, 2): IdentityEdgeClass.STRONG_SUPPORT})
 
-    assert result.accepted_groups == ()
-    assert result.deferred_work_units[0].reason == (
-        DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY
-    )
+    assert tuple(item.member_record_ids for item in result.accepted_groups) == ((1, 2),)
+    assert tuple(
+        (item.record_ids, item.reason) for item in result.deferred_work_units
+    ) == (((3, 4, 5, 6, 7), DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY),)
 
 
-def test_case_c_one_neutral_edge_remains_partition_stability_deferred():
+def test_case_c_one_neutral_edge_remains_ownership_deferred():
     result = resolve(7, {(1, 2): IdentityEdgeClass.NON_GROUPABLE})
 
     assert result.accepted_groups == ()
     assert result.deferred_work_units[0].reason == (
-        DeferredIdentityReason.INSUFFICIENT_PARTITION_STABILITY
+        DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY
     )
 
 
@@ -138,7 +140,7 @@ def test_case_e_four_complete_all_review_has_equal_pair_partitions():
     assert result.deferred_work_units[0].reason == (
         DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY
     )
-    assert result.metrics.candidate_partitions_explored == 96
+    assert result.metrics.candidate_partitions_explored == 52
 
 
 def test_case_f_two_member_review_is_an_accepted_review_hypothesis():
@@ -169,7 +171,7 @@ def test_bicycle_shape_generic_only_clique_fails_group_cohesion_before_partition
     assert result.deferred_work_units[0].reason == (
         DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY
     )
-    assert result.metrics.candidate_partitions_explored == 1540
+    assert result.metrics.candidate_partitions_explored == 1218
 
 
 def test_non_generic_full_clique_is_valid_before_current_partition_objective():

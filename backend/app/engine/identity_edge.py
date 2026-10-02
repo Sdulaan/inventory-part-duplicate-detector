@@ -5,7 +5,7 @@ from itertools import combinations
 from typing import Hashable, Mapping
 
 
-IDENTITY_EDGE_CLASSIFIER_VERSION = "identity-edge-classifier-v1"
+IDENTITY_EDGE_CLASSIFIER_VERSION = "identity-edge-classifier-v2"
 
 
 class IdentityEdgeClass(str, Enum):
@@ -63,13 +63,18 @@ def _human_decision(evidence, feedback) -> str:
     return str(decision or "").strip().upper()
 
 
+def _is_request_condition(mismatch: dict) -> bool:
+    """Strict condition fields scope one scan; they are not identity conflicts."""
+    return str(mismatch.get("scope") or "").upper() == "REQUEST_CONDITION"
+
+
 def _affirmative_identity_mismatch_groups(mismatches: list[dict]) -> tuple[str, ...]:
     groups = set()
     for mismatch in mismatches:
         group = str(mismatch["group"]).strip().upper()
         values_a = mismatch.get("values_a")
         values_b = mismatch.get("values_b")
-        if group in _NON_IDENTITY_MISMATCH_GROUPS:
+        if group in _NON_IDENTITY_MISMATCH_GROUPS or _is_request_condition(mismatch):
             continue
         if isinstance(values_a, list) and values_a and isinstance(values_b, list) and values_b:
             groups.add(group)
@@ -133,6 +138,8 @@ def classify_identity_edge(evidence, *, feedback=None) -> IdentityEdgeClassifica
         reason = "UOM_MAPPING_ONLY"
     elif rule_decision == "CROSS_SITE" or rejection_reason == "CONTRACT_MISMATCH_IN_SAME_SITE_MODE":
         reason = "CROSS_SITE_SCOPE_ONLY"
+    elif mismatches and all(_is_request_condition(item) for item in mismatches):
+        reason = "REQUEST_CONDITION_SCOPE_ONLY"
     elif rejection_reason == "SAME_PART_NO":
         reason = "SAME_PART_REFERENCE"
     elif mismatches:
