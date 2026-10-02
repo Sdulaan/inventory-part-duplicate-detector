@@ -8,4 +8,4 @@ data:
   ENVIRONMENT: kubernetes
   CORS_ORIGINS: https://inventory-duplicate.example.com
   MAX_UPLOAD_BYTES: "52428800"
-  MAX_CSV_RECORDS: "100000"
+  MAX_CSV_RECORDS: "500000"

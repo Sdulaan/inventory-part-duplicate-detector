@@ -58,8 +58,7 @@ from app.resolution.validation import (
     with_targeted_request_fingerprint,
 )
 from app.resolution.request_constraints import (
-    CONTRACT_GROUP_CONSTRAINT,
-    contract_group_is_compatible,
+    group_satisfies_request_constraints,
 )
 
 
@@ -328,9 +327,11 @@ def _bridge_summary(member_ids, lookup):
 
 def _build_group(value, unit, members, lookup, targeted_results):
     members = tuple(sorted(members))
-    if CONTRACT_GROUP_CONSTRAINT in value.request_scoped_group_constraints:
+    if value.request_scoped_group_constraints:
         by_id = records_by_id(value)
-        if not contract_group_is_compatible(by_id[item] for item in members):
+        if not group_satisfies_request_constraints(
+            (by_id[item] for item in members), value.request_scoped_group_constraints,
+        ):
             return None
     internal = [lookup.get(pair) for pair in combinations(members, 2)]
     if any(item is None for item in internal):
@@ -791,10 +792,17 @@ def _resolve_unit(value, unit, blocked, provider) -> _UnitOutcome:
         return outcome
     outcome.accepted.extend(selected)
     if ambiguous:
-        outcome.deferred.append(_deferred(
-            value, unit, DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY,
-            "equally supported disjoint partitions leave ownership unresolved",
-        ))
+        # Groups identical in every best partition are owned; only the
+        # remaining members are unresolved. Deferring the whole unit would
+        # report accepted records as deferred too.
+        owned = {member for group in selected for member in group.member_record_ids}
+        residual = tuple(member for member in unit.member_ids if member not in owned)
+        if residual:
+            outcome.deferred.append(_deferred(
+                value, unit, DeferredIdentityReason.UNRESOLVED_OWNERSHIP_AMBIGUITY,
+                "equally supported disjoint partitions leave ownership unresolved",
+                member_ids=residual,
+            ))
     return outcome
 
 

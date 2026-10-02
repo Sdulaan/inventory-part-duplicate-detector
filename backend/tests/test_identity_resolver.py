@@ -653,7 +653,7 @@ def test_bounded_search_metrics_are_reported_for_controlled_six_member_case():
     assert result.metrics.targeted_evidence_cache_hit_count == 0
 
 
-def test_r3c_review_links_join_units_strongest_first_up_to_the_member_cap():
+def _r3c_input():
     def scored(left, right, edge_class, score):
         return replace(edge(left, right, edge_class), deterministic_score=score)
 
@@ -667,11 +667,29 @@ def test_r3c_review_links_join_units_strongest_first_up_to_the_member_cap():
     edges.append(scored(3, 4, IdentityEdgeClass.REVIEW_SUPPORT, 62.0))
     # An isolated weak pair still forms a unit.
     edges.append(scored(7, 8, IdentityEdgeClass.REVIEW_SUPPORT, 61.0))
-    value = resolver_input(
+    return resolver_input(
         [record(index) for index in range(1, 9)], edges,
         max_members=4, pairwise_limit=4,
     )
-    result = resolve_identity_groups(value, FakeTargetedProvider())
+
+
+def test_r3c_every_review_link_connects_and_oversized_units_defer_whole():
+    # Positive class alone decides connectivity: the weak 3-4 review link
+    # joins both triples into one six-member unit, which exceeds the four-member
+    # cap and is deferred whole instead of being cut at the weak link.
+    result = resolve_identity_groups(_r3c_input(), FakeTargetedProvider())
+    assert result.metrics.work_unit_count == 2
+    assert set(memberships(result)) == {(7, 8)}
+    assert [item.record_ids for item in result.deferred_work_units] == [(1, 2, 3, 4, 5, 6)]
+
+
+def test_r3c_score_gated_policy_still_cuts_weak_links_when_selected(monkeypatch):
+    from app.resolution import work_unit_topology
+
+    monkeypatch.setattr(
+        work_unit_topology, "TOPOLOGY_POLICY", work_unit_topology.SCORE_GATED_WEAK_LINKS
+    )
+    result = resolve_identity_groups(_r3c_input(), FakeTargetedProvider())
     assert result.deferred_work_units == ()
     assert result.metrics.work_unit_count == 3
     assert set(memberships(result)) == {(1, 2, 3), (4, 5, 6), (7, 8)}

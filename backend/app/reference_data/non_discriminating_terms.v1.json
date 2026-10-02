@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "reference_version": "non-discriminating-terms-v1",
+  "category_nouns": [
+    "accessories", "accessory", "assembly", "assy", "bolt", "cable", "component",
+    "components", "consumable", "consumables", "equipment", "filter", "goods",
+    "hardware", "inventory", "item", "items", "kit", "label", "labels", "material",
+    "materials", "nut", "oil", "paint", "part", "parts", "pipe", "product",
+    "products", "sales", "screw", "sensor", "set", "spare", "spares", "stock",
+    "supplies", "supply", "test", "tool", "tools", "unit", "units", "washer"
+  ],
+  "qualifiers": [
+    "assorted", "basic", "big", "common", "duty", "extra", "general", "generic",
+    "genuine", "heavy", "high", "industrial", "large", "light", "low", "main",
+    "medium", "mini", "misc", "miscellaneous", "multi", "multipurpose", "new",
+    "normal", "old", "original", "other", "purpose", "quality", "regular",
+    "replacement", "small", "special", "standard", "std", "universal", "used",
+    "various"
+  ],
+  "stopwords": [
+    "a", "an", "and", "as", "at", "by", "for", "from", "in", "no", "of", "on",
+    "or", "per", "the", "to", "type", "grade", "with", "w", "without"
+  ]
+}

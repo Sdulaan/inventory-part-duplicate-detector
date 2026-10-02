@@ -7,6 +7,7 @@ from dataclasses import replace
 from itertools import combinations
 
 from app.engine.identity_edge import IdentityEdgeClass
+from app.engine.identity_evidence_evaluator import generic_only_from_evidence
 from app.resolution.contracts import (
     DeferredIdentityWorkUnit,
     DeferredIdentityReason,
@@ -45,9 +46,8 @@ from app.resolution.fingerprints import (
     targeted_evidence_request_fingerprint,
 )
 from app.resolution.request_constraints import (
-    CONTRACT_GROUP_CONSTRAINT,
-    REQUEST_SCOPED_GROUP_CONSTRAINTS,
-    contract_group_is_compatible,
+    group_satisfies_request_constraints,
+    is_allowlisted_group_constraint,
 )
 from app.resolution.pair_explanation import (
     PAIR_EXPLANATION_CONTRACT_VERSION,
@@ -181,7 +181,7 @@ def targeted_result_from_evaluation(
         evidence_summary=evaluated_relationship.rule_decision,
         evaluator_version=evaluated_relationship.evaluation_algorithm_version,
         evidence_fingerprint=evaluated_relationship.evidence_fingerprint,
-        generic_only=bool(generic_evidence.get("generic_guard_reason")),
+        generic_only=generic_only_from_evidence(generic_evidence),
         evidence_contract_version=TARGETED_EVIDENCE_CONTRACT_VERSION,
         deterministic_score=evaluated_relationship.deterministic_score,
         explanation_evidence_json=explanation_evidence_json,
@@ -237,7 +237,10 @@ def validate_resolution_input(value: IdentityResolutionInput) -> None:
         "request_scoped_group_constraints",
     )
     _require(
-        set(value.request_scoped_group_constraints) <= REQUEST_SCOPED_GROUP_CONSTRAINTS,
+        all(
+            is_allowlisted_group_constraint(item)
+            for item in value.request_scoped_group_constraints
+        ),
         "request-scoped group constraint is not allowlisted",
     )
 
@@ -381,13 +384,14 @@ def validate_group_hypothesis(
         else _evidence_lookup(resolution_input, targeted_results)
     )
     internal_pairs = tuple(combinations(group.member_record_ids, 2))
-    if CONTRACT_GROUP_CONSTRAINT in resolution_input.request_scoped_group_constraints:
+    if resolution_input.request_scoped_group_constraints:
         by_id = records_by_id(resolution_input)
         _require(
-            contract_group_is_compatible(
-                by_id[item] for item in group.member_record_ids
+            group_satisfies_request_constraints(
+                (by_id[item] for item in group.member_record_ids),
+                resolution_input.request_scoped_group_constraints,
             ),
-            "accepted group violates request-scoped CONTRACT equality",
+            "accepted group violates a request-scoped group constraint",
         )
     internal = [lookup.get(pair) for pair in internal_pairs]
     human_cannot = human_cannot_links(resolution_input).keys()

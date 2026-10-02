@@ -14,8 +14,7 @@ from app.engine.signed_identity_evidence import (
 )
 
 
-LEXICAL_TRUST_ASSESSMENT_VERSION = "lexical-trust-assessment-v1"
-PART_NUMBER_COHERENCE_FLOOR = 80.0
+LEXICAL_TRUST_ASSESSMENT_VERSION = "lexical-trust-assessment-v2"
 
 
 def _value(record, name: str):
@@ -68,9 +67,9 @@ def assess_lexical_trust(
 ) -> LexicalTrustAssessment:
     """Assess whether lexical evidence has enough independent support for Strong.
 
-    The 80-point part-number floor is deliberately below the scorer's existing
-    90-point *strong* part-number rescue.  It is a cautious coherence floor, not
-    a duplicate threshold: falling below it can only demote Strong to Review.
+    Part-number similarity is reported only; it is not identity evidence. The
+    evaluator decides with the identity-support sufficiency assessment whether
+    description-dominant support is independent enough to remain Strong.
     """
     signature_a = derive_identity_signature(
         record_a, record_reference=record_reference_a
@@ -99,10 +98,9 @@ def assess_lexical_trust(
         & anchor_tokens(_value(record_a, "DESCRIPTION"))
         & anchor_tokens(_value(record_b, "DESCRIPTION"))
     )
-    part_family_coherence = (
-        part_number_coherence >= PART_NUMBER_COHERENCE_FLOOR
-        or cross_field_identity_anchor
-    )
+    # Fuzzy part-number similarity is reported but is not identity evidence:
+    # duplicate masters have different part numbers by definition.
+    part_family_coherence = cross_field_identity_anchor
     description_a = _normalized_text(_value(record_a, "DESCRIPTION"))
     description_b = _normalized_text(_value(record_b, "DESCRIPTION"))
     compact_a = re.sub(r"[^a-z0-9]", "", description_a)

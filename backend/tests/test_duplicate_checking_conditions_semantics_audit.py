@@ -162,12 +162,19 @@ def test_four_case_duplicate_condition_semantics_are_observed_without_providers(
     assert cases["uom"]["proposal_pairs"] == all_pairs
     assert cases["contract"]["proposal_pairs"] == ["AB", "AD", "BD"]
     assert cases["contract_uom"]["proposal_pairs"] == ["AB", "AD", "BD"]
-    assert cases["none"]["groups"] == cases["uom"]["groups"] == []
+    # Identical descriptions sharing the model number 6205 are identity-
+    # discriminating, so they are STRONG; with Site unselected the cross-site
+    # record C may join. UOM is mapping context, never a group constraint.
+    assert cases["none"]["groups"] == [["A", "B", "C", "D"]]
+    assert cases["uom"]["groups"] == []
     assert cases["contract"]["groups"] == [["A", "B", "D"]]
     assert cases["contract_uom"]["groups"] == [["A", "B", "D"]]
-    assert cases["none"]["unassigned"] == cases["uom"]["unassigned"] == [
-        "A", "B", "C", "D",
-    ]
+    assert cases["none"]["unassigned"] == []
+    assert cases["uom"]["unassigned"] == ["A", "B", "C", "D"]
+    # Selecting UNIT_MEAS demotes the D pairs (80) to review; the frozen GF5
+    # objective then prefers two pairs over one cohesive review group, and the
+    # three tied pairings leave ownership unresolved.
+    assert cases["uom"]["deferred_reasons"] == ["UNRESOLVED_OWNERSHIP_AMBIGUITY"]
     assert cases["contract"]["unassigned"] == ["C"]
     assert cases["contract_uom"]["unassigned"] == ["C"]
     expected_scores = {
@@ -196,9 +203,16 @@ def test_four_case_duplicate_condition_semantics_are_observed_without_providers(
         case: {pair: edge["score"] for pair, edge in result["evidence"].items()}
         for case, result in cases.items()
     } == expected_scores
-    assert all(
-        edge["class"] == "REVIEW_SUPPORT"
-        for result in cases.values()
-        for edge in result["evidence"].values()
-    )
+    assert {
+        case: {
+            pair: edge["class"] for pair, edge in result["evidence"].items()
+            if edge["class"] != "STRONG_SUPPORT"
+        }
+        for case, result in cases.items()
+    } == {
+        "none": {},
+        "contract": {},
+        "uom": dict.fromkeys(("AD", "BD", "CD"), "REVIEW_SUPPORT"),
+        "contract_uom": {},
+    }
     assert cases == json.loads(json.dumps(cases, sort_keys=True))

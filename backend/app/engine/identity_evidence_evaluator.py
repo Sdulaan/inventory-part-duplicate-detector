@@ -6,6 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 
+from app.engine.candidate_evaluation_features import build_candidate_evaluation_features
 from app.engine.generic_description_guard import is_generic_description
 from app.engine.identity_edge import (
     IDENTITY_EDGE_CLASSIFIER_VERSION,
@@ -18,7 +19,15 @@ from app.engine.identity_discriminator import (
     evaluate_identity_discriminators,
 )
 from app.engine.scoring import score_candidate
+from app.engine.identity_support_sufficiency import (
+    IDENTIFYING_NUMBERS_DISAGREE_REASON,
+    IDENTITY_SUPPORT_SUFFICIENCY_VERSION,
+    LOW_INFORMATION_REVIEW_REASON,
+    NON_DISCRIMINATING_TERMS_FINGERPRINT,
+    assess_identity_support,
+)
 from app.engine.lexical_trust import assess_lexical_trust
+from app.engine.signed_identity_evidence import SIGNED_IDENTITY_EVIDENCE_COMPARISON_VERSION
 from app.engine.uom_relationship import classify_uom_relationship
 from app.services.canonical_record_service import (
     CanonicalScanRecord,
@@ -27,7 +36,11 @@ from app.services.canonical_record_service import (
 
 
 IDENTITY_EVIDENCE_CONTRACT_VERSION = "identity-evidence-edge-v1"
-IDENTITY_EVIDENCE_EVALUATOR_VERSION = "canonical-identity-evaluator-v8"
+# v9: rule downgrades never raise status, role agreement is not identity,
+# Strong requires identity-discriminating evidence, strict condition fields are
+# request-scoped instead of CANNOT_LINK, and generic_only is explicit. The
+# earlier dev "v8" and the demo-authoritative "v8" differ, so neither is reused.
+IDENTITY_EVIDENCE_EVALUATOR_VERSION = "canonical-identity-evaluator-v9"
 _COMPONENT_FIELDS = (
     "description_similarity",
     "tfidf_score",
@@ -100,6 +113,9 @@ def deterministic_context_payload(context: DeterministicIdentityContext) -> dict
         "evaluator_version": IDENTITY_EVIDENCE_EVALUATOR_VERSION,
         "edge_classifier_version": IDENTITY_EDGE_CLASSIFIER_VERSION,
         "identity_discriminator_version": IDENTITY_DISCRIMINATOR_VERSION,
+        "identity_support_sufficiency_version": IDENTITY_SUPPORT_SUFFICIENCY_VERSION,
+        "non_discriminating_terms_fingerprint": NON_DISCRIMINATING_TERMS_FINGERPRINT,
+        "signed_identity_comparison_version": SIGNED_IDENTITY_EVIDENCE_COMPARISON_VERSION,
         "scan_mode": str(context.scan_mode),
         "selected_fields": sorted(set(context.selected_fields)),
         "uom_is_mapping_context": True,
@@ -111,6 +127,13 @@ def deterministic_context_payload(context: DeterministicIdentityContext) -> dict
             for key, label in sorted(set(context.strict_custom_fields))
         ]
     return payload
+
+
+def generic_only_from_evidence(generic_evidence: dict) -> bool:
+    """Read the explicit v9 flag; older rows only recorded the guard reason."""
+    if "generic_only" in generic_evidence:
+        return bool(generic_evidence["generic_only"])
+    return bool(generic_evidence.get("generic_guard_reason"))
 
 
 def deterministic_context_fingerprint(context: DeterministicIdentityContext) -> str:
@@ -130,16 +153,21 @@ def evaluate_canonical_identity_relationship(
     left, right = sorted((record_1, record_2), key=lambda item: item.record_id)
     left_input = catalog_record_to_engine_input(left)
     right_input = catalog_record_to_engine_input(right)
+    features_left = build_candidate_evaluation_features(left_input)
+    features_right = build_candidate_evaluation_features(right_input)
+    selected_fields = sorted(set(context.selected_fields))
     result = score_candidate(
         left_input,
         right_input,
-        sorted(set(context.selected_fields)),
+        selected_fields,
         context.scan_mode,
         allow_uom_mapping_review=True,
         strict_custom_fields=[
             {"field_key": key, "display_label": label}
             for key, label in context.strict_custom_fields
         ],
+        features_a=features_left,
+        features_b=features_right,
     )
     discriminator = evaluate_identity_discriminators(
         left.part_no, left.description, left.uom,
@@ -150,6 +178,11 @@ def evaluate_canonical_identity_relationship(
     classification_input = dict(result)
     classification_input["critical_mismatches"] = protected_conflicts
     classification = classify_identity_edge(classification_input)
+    # One authority decides whether agreeing evidence identifies an item. The
+    # numeric score is untouched; only STRONG_SUPPORT can be reduced to review.
+    support = assess_identity_support(
+        left_input, right_input, features_left, features_right, selected_fields,
+    )
     lexical_trust = None
     if classification.edge_class == IdentityEdgeClass.STRONG_SUPPORT:
         lexical_trust = assess_lexical_trust(
@@ -159,14 +192,35 @@ def evaluate_canonical_identity_relationship(
             record_reference_a=left.record_ref_key,
             record_reference_b=right.record_ref_key,
         )
-        if lexical_trust.requires_strong_downgrade:
+        reasons = set(lexical_trust.risk_reasons)
+        if support.sufficient_for_strong:
+            # Discriminating evidence is itself the independent support the
+            # lexical check asks for; part-number similarity no longer is.
+            reasons.discard("LEXICAL_SUPPORT_NOT_INDEPENDENT")
+        else:
+            reasons.add(LOW_INFORMATION_REVIEW_REASON)
+        if reasons:
             classification = IdentityEdgeClassification(
                 IdentityEdgeClass.REVIEW_SUPPORT,
-                tuple(sorted(
-                    set(classification.reason_codes)
-                    | set(lexical_trust.risk_reasons)
-                )),
+                tuple(sorted(set(classification.reason_codes) | reasons)),
             )
+    if (
+        classification.edge_class in {
+            IdentityEdgeClass.STRONG_SUPPORT, IdentityEdgeClass.REVIEW_SUPPORT,
+        }
+        and support.identifying_numbers_disagree
+        and not support.same_part_reference
+    ):
+        # Positive support means "plausibly the same item". Two different
+        # model numbers are not, whatever the shared wording scores; this is
+        # neutral (not CANNOT_LINK) because numbers are not always models.
+        classification = IdentityEdgeClassification(
+            IdentityEdgeClass.NON_GROUPABLE, (IDENTIFYING_NUMBERS_DISAGREE_REASON,),
+        )
+    low_information = (
+        classification.edge_class == IdentityEdgeClass.REVIEW_SUPPORT
+        and not support.sufficient_for_strong
+    )
     # A component with nothing to compare (no technical terms on either side)
     # is absent rather than shown as 0 or 100.
     component_scores = {
@@ -182,8 +236,17 @@ def evaluate_canonical_identity_relationship(
             if result.get("rejection_reason") == "GENERIC_DESCRIPTION"
             else ""
         ),
+        # Explicit and independent of rejection_reason, which later rules
+        # overwrite. GF5 treats these edges as generic-only connectivity.
+        "low_information_identity": low_information,
+        "generic_only": bool(
+            result.get("rejection_reason") == "GENERIC_DESCRIPTION"
+            or result.get("generic_description_warning")
+            or low_information
+        ),
     }
     technical_evidence = {
+        "identity_support_sufficiency": support.payload(),
         "variant_attributes_1": result.get("variant_attributes_a") or {},
         "variant_attributes_2": result.get("variant_attributes_b") or {},
         "normalized_description_1": result.get("normalized_description_a") or "",

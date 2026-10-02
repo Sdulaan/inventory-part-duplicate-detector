@@ -27,6 +27,7 @@ from app.db.models import (
 from app.engine.identity_edge import IdentityEdgeClass
 from app.engine.identity_evidence_evaluator import (
     DeterministicIdentityContext,
+    generic_only_from_evidence,
     strict_custom_fields_from_used,
 )
 from app.repositories.resolution_repository import ResolutionRepository
@@ -63,7 +64,11 @@ from app.resolution.validation import (
     adapt_effective_human_constraints,
     validate_resolution_result,
 )
-from app.resolution.request_constraints import CONTRACT_GROUP_CONSTRAINT
+from app.core.constants import BUILT_IN_STRICT_FIELDS
+from app.resolution.request_constraints import (
+    CONTRACT_GROUP_CONSTRAINT,
+    field_group_constraint,
+)
 from app.services.canonical_record_service import load_scan_record_catalog
 from app.services.identity_evidence_service import load_identity_evidence
 from app.services.identity_group_review_service import IdentityGroupReviewService
@@ -142,7 +147,7 @@ def _resolution_input(
             edge_class=item.edge_class,
             reason_codes=tuple(sorted(item.classification_reason_codes)),
             evidence_fingerprint=item.evidence_fingerprint,
-            generic_only=bool(json.loads(item.generic_evidence_json).get("generic_guard_reason")),
+            generic_only=generic_only_from_evidence(json.loads(item.generic_evidence_json)),
             deterministic_score=item.deterministic_score,
         ) for item in evidence_result.edges
     ), key=lambda item: (item.record_id_1, item.record_id_2)))
@@ -163,13 +168,38 @@ def _resolution_input(
         human_constraints=constraints,
         resolver_algorithm_version=DEFAULT_RESOLVER_ALGORITHM_VERSION,
         resolver_configuration=configuration,
-        request_scoped_group_constraints=(
-            (CONTRACT_GROUP_CONSTRAINT,)
-            if CONTRACT_GROUP_CONSTRAINT in selected_fields
-            else ()
+        request_scoped_group_constraints=request_scoped_group_constraints(
+            selected_fields, scan.custom_fields_used, records,
         ),
 
     )
+
+
+def request_scoped_group_constraints(
+    selected_fields, custom_fields_used, records=(),
+) -> tuple[str, ...]:
+    """Conditions that keep records apart in this scan only.
+
+    Site applies when selected. Built-in UOM condition fields and strict custom
+    fields always apply, but only when some record carries the column; a record
+    without the value is compatible with any. Scans without those columns keep
+    their previous input fingerprint.
+    """
+    constraints = set()
+    if CONTRACT_GROUP_CONSTRAINT in selected_fields:
+        constraints.add(CONTRACT_GROUP_CONSTRAINT)
+    present = {
+        str(key).upper()
+        for record in records
+        for key, value in (getattr(record, "extra_fields", ()) or ())
+        if str(value or "").strip()
+    }
+    keys = {item["field_key"] for item in BUILT_IN_STRICT_FIELDS}
+    keys |= {key for key, _label in strict_custom_fields_from_used(custom_fields_used)}
+    for key in keys:
+        if key.upper() in present:
+            constraints.add(field_group_constraint(key))
+    return tuple(sorted(constraints))
 
 
 def resolution_input_fingerprint(value: IdentityResolutionInput) -> str:

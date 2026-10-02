@@ -1,5 +1,29 @@
 from app.core.constants import BUILT_IN_STRICT_FIELDS, CUSTOM_STRICT_SCORE_CAP
 from app.engine.column_semantics import clean_field_value, normalize_scan_mode
+from app.engine.uom_relationship import canonical_uom
+
+
+REQUEST_CONDITION_SCOPE = "REQUEST_CONDITION"
+UOM_CONDITION_FIELDS = frozenset(item["field_key"] for item in BUILT_IN_STRICT_FIELDS)
+
+
+def condition_field_value(record, field_key: str) -> str:
+    """Comparable value of a strict condition field; "" when not recorded."""
+    key = str(field_key).strip().upper()
+    if isinstance(record, dict):
+        raw = record.get(key)
+    else:
+        raw = dict(getattr(record, "extra_fields", ()) or ()).get(key)
+    if key in UOM_CONDITION_FIELDS:
+        return canonical_uom(raw)
+    return clean_field_value(raw).casefold()
+
+
+def condition_values_differ(left, right, field_key: str) -> bool:
+    """Both recorded and different; a missing value is not a mismatch."""
+    left_value = condition_field_value(left, field_key)
+    right_value = condition_field_value(right, field_key)
+    return bool(left_value and right_value and left_value != right_value)
 
 
 def _differs(record_a, record_b, field: str) -> tuple[bool, str, str]:
@@ -9,11 +33,18 @@ def _differs(record_a, record_b, field: str) -> tuple[bool, str, str]:
 
 
 def _strict_custom_field_rule(record_a, record_b, strict_custom_fields):
+    """A strict condition field keeps differing records apart in this scan.
+
+    The mismatch is tagged REQUEST_CONDITION so classification treats it as
+    scan scope (NON_GROUPABLE) rather than a durable identity contradiction;
+    GF5 enforces it as a request-scoped group constraint. UOM condition fields
+    compare through UOM aliases, so PCS and EA are not a mismatch.
+    """
     for custom_field in strict_custom_fields or []:
         field_key = custom_field["field_key"]
         display_label = custom_field.get("display_label", field_key)
-        differs, value_a, value_b = _differs(record_a, record_b, field_key)
-        if differs:
+        _differs_raw, value_a, value_b = _differs(record_a, record_b, field_key)
+        if condition_values_differ(record_a, record_b, field_key):
             return {
                 "blocked": True,
                 "business_status": "REJECTED_BY_BUSINESS_RULE",
@@ -26,6 +57,7 @@ def _strict_custom_field_rule(record_a, record_b, strict_custom_fields):
                     "label": display_label,
                     "values_a": [value_a],
                     "values_b": [value_b],
+                    "scope": REQUEST_CONDITION_SCOPE,
                 }],
             }
     return None

@@ -75,6 +75,8 @@ ONE_SIDED_QUALIFIER_GROUPS = {
     "PLACEMENT",
     "HIERARCHY",
     "SIGNAL_TYPE",
+    # A sized SKU (jumpsuit M) and an unsized record are not confirmed as one item.
+    "SIZE",
 }
 ORDINAL_WORDS = {
     "first": "1",
@@ -95,23 +97,75 @@ def _words(text: str) -> set[str]:
 
 
 SIZE_CODES = {
+    "xxs": "extra extra small",
     "xs": "extra small",
     "s": "small",
     "m": "medium",
     "l": "large",
     "xl": "extra large",
     "xxl": "extra extra large",
+    "xxxl": "extra extra extra large",
+    "2xl": "extra extra large",
+    "3xl": "extra extra extra large",
+    "4xl": "4x large",
+    "5xl": "5x large",
+    "onesize": "one size",
+    "onesz": "one size",
+    "os": "one size",
 }
+# A single letter after one of these words is a type/series code ("TYPE S"),
+# not a garment size.
+_SIZE_CODE_BLOCKERS = {"type", "grade", "class", "series", "model"}
+
+
+# Size ranges written without the slash in some catalogues (ML = M/L).
+_SIZE_RANGE_ALIASES = {"ml": "m/l", "sm": "s/m", "xss": "xs/s", "lxl": "l/xl"}
+
+
+def _size_code_value(token: str) -> str | None:
+    """A size code, or a size range written with "/" (M/L, XS/S)."""
+    token = token.strip().casefold()
+    token = _SIZE_RANGE_ALIASES.get(token, token)
+    if token in SIZE_CODES:
+        return SIZE_CODES[token]
+    parts = token.split("/")
+    if len(parts) == 2 and all(part in SIZE_CODES for part in parts):
+        return "/".join(SIZE_CODES[part] for part in parts)
+    return None
 
 
 def _find_size_codes(raw: str) -> list[str]:
-    """Size letters only when explicitly marked, e.g. "(S)" or a trailing "-L"."""
+    """Size codes when marked as sizes: "(S)", "size M", or the last word.
+
+    The last word counts only after a non-numeric word, so "Nova jumpsuit
+    black/stripe m" and "tights black (9000) l" are sizes, while "cable 5 m"
+    (metres) and "oil 10 l" (litres) and "pipe clamp type s" are not.
+    """
     codes = "|".join(sorted(SIZE_CODES, key=len, reverse=True))
-    found = re.findall(rf"\(\s*({codes})\s*\)", raw)
-    trailing = re.search(rf"[-/]\s*({codes})\s*$", raw.strip())
-    if trailing:
-        found.append(trailing.group(1))
-    return [SIZE_CODES[code] for code in found]
+    found = [
+        SIZE_CODES[code.casefold()]
+        for code in re.findall(rf"\(\s*({codes})\s*\)", raw, flags=re.IGNORECASE)
+    ]
+    found += [
+        SIZE_CODES[code.casefold()]
+        for code in re.findall(rf"\b(?:size|sz)\s*:?\s*({codes})\b", raw, flags=re.IGNORECASE)
+    ]
+    words = raw.strip().split()
+    if len(words) >= 2:
+        last = re.sub(r"^[-/]+", "", words[-1])
+        previous = words[-2].casefold().strip("-/")
+        value = _size_code_value(last)
+        if (
+            value
+            and not re.fullmatch(r"\d+(?:[.,]\d+)?", previous)
+            and previous not in _SIZE_CODE_BLOCKERS
+        ):
+            found.append(value)
+    # A size glued on with "-" or "/" ("HOODIE-L") keeps the earlier rule.
+    marked = re.search(rf"[-/]\s*({codes})\s*$", raw.strip(), flags=re.IGNORECASE)
+    if marked and not found:
+        found.append(SIZE_CODES[marked.group(1).casefold()])
+    return found
 
 
 _WRITTEN_NUMBER = re.compile(r"\d+(?:[.,]\d+)?(?:/\d+(?:[.,]\d+)?)?")
@@ -139,6 +193,13 @@ def _find_numeric_variant(raw: str, normalized: str) -> tuple[list[str], list[st
 def _find_size(normalized: str, raw: str = "") -> list[str]:
     found = _find_size_codes(raw)
     protected = normalized
+    words = raw.strip().split()
+    if found and words:
+        # The trailing size code was already read as one value ("xs/s"); do
+        # not read its parts again as separate sizes.
+        tail = normalize_description(words[-1])
+        if tail and protected.endswith(tail):
+            protected = protected[: -len(tail)]
     for phrase in ("extra small", "extra large"):
         if re.search(rf"\b{re.escape(phrase)}\b", protected):
             found.append(SIZE_PHRASES[phrase])

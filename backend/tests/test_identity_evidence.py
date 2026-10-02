@@ -26,6 +26,11 @@ from app.engine.identity_evidence_evaluator import (
     DeterministicIdentityContext,
     evaluate_canonical_identity_relationship,
 )
+from app.engine.candidate_evaluation_features import build_candidate_evaluation_features
+from app.engine.identity_support_sufficiency import (
+    LOW_INFORMATION_REVIEW_REASON,
+    assess_identity_support,
+)
 from app.engine.lexical_trust import assess_lexical_trust
 from app.engine.scoring import score_candidate
 from app.evidence.contracts import IdentityEvidenceEdge, IdentityEvidenceRun
@@ -160,8 +165,10 @@ def test_all_four_signed_classes_use_production_deterministic_logic(db):
     records = [
         row("SKF-6205-A", "SKF BEARING 6205 25MM"),
         row("SKF6205A", "SKF BEARING 6205 25 MM"),
-        row("M1", "MOTOR BEARING 6205"),
-        row("M2", "MOTOR BEARING SKF 6205"),
+        # Identical but category-only wording agrees 100% yet does not
+        # identify an item, so it is REVIEW_SUPPORT rather than STRONG.
+        row("M1", "INDUSTRIAL COMPONENT"),
+        row("M2", "INDUSTRIAL COMPONENT"),
         row("D1", "BEARING 10MM"),
         row("D2", "BEARING 20MM"),
         row("N1", "BEARING"),
@@ -268,9 +275,20 @@ def test_pure_evaluator_matches_authoritative_edge_semantics_and_is_orientation_
             record_reference_a=catalog.records[0].record_ref_key,
             record_reference_b=catalog.records[1].record_ref_key,
         )
-        if trust.requires_strong_downgrade:
+        trust_reasons = set(trust.risk_reasons)
+        support = assess_identity_support(
+            left_input, right_input,
+            build_candidate_evaluation_features(left_input),
+            build_candidate_evaluation_features(right_input),
+            ["CONTRACT", "UNIT_MEAS"],
+        )
+        if support.sufficient_for_strong:
+            trust_reasons.discard("LEXICAL_SUPPORT_NOT_INDEPENDENT")
+        else:
+            trust_reasons.add(LOW_INFORMATION_REVIEW_REASON)
+        if trust_reasons:
             expected_class = IdentityEdgeClass.REVIEW_SUPPORT
-            reasons |= set(trust.risk_reasons)
+            reasons |= trust_reasons
     assert forward.edge_class == expected_class
     assert forward.classification_reason_codes == tuple(sorted(reasons))
     assert forward == reverse

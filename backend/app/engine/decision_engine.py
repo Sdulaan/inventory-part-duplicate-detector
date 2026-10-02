@@ -6,6 +6,7 @@ from app.engine.candidate_evaluation_features import (
 from app.engine.business_rules import evaluate_hard_business_rules
 from app.engine.column_semantics import clean_field_value, normalize_scan_mode
 from app.engine.explanation import build_explanation
+from app.engine.identity_support_sufficiency import same_part_reference
 from app.engine.item_family_classifier import shared_family
 from app.engine.similarity_model import (
     calculate_fuzzy_similarity,
@@ -111,11 +112,22 @@ def _visibility_payload(
     }
 
 
-def _has_strong_part_number_identity_evidence(features_a, features_b, similarity: float) -> bool:
-    """Reuse the scorer's existing >=90 strong part-number relationship."""
-    left = features_a.normalized_part_no.replace(" ", "")
-    right = features_b.normalized_part_no.replace(" ", "")
-    return bool(left and right and similarity >= 90)
+_STATUS_RANK = {
+    "INSUFFICIENT_DATA": 0,
+    "POSSIBLE_DUPLICATE_REVIEW": 1,
+    "LIKELY_DUPLICATE": 2,
+}
+
+
+def _downgraded_status(current: str) -> str:
+    """A DOWNGRADE rule may lower the status to review, never raise it.
+
+    Raising INSUFFICIENT_DATA to review would turn an unrelated low-scoring
+    pair into positive REVIEW_SUPPORT that GF5 uses for connectivity.
+    """
+    if _STATUS_RANK.get(current, 0) > _STATUS_RANK["POSSIBLE_DUPLICATE_REVIEW"]:
+        return "POSSIBLE_DUPLICATE_REVIEW"
+    return current
 
 
 def _blocked_result(
@@ -259,10 +271,12 @@ def evaluate_candidate(
 
     if features_a.generic_description or features_b.generic_description:
         generic_warning = True
-        if _has_strong_part_number_identity_evidence(features_a, features_b, part_no):
+        # Fuzzy part-number similarity cannot rescue a generic description;
+        # only the same reference written differently (BRG-6205-A / BRG6205A).
+        if same_part_reference(features_a, features_b):
             explanation = (
-                f"{explanation} Generic description evidence is supplemented by a strong "
-                "part-number relationship."
+                f"{explanation} Generic description evidence is supplemented by the "
+                "same part reference written differently."
             )
         else:
             final = min(final, 65.0)
@@ -297,7 +311,7 @@ def evaluate_candidate(
         explanation = f"{explanation} Application context appears different: {left} vs {right}."
         rule_decision = "DOWNGRADE"
         rejection_reason = "APPLICATION_CONTEXT_MISMATCH"
-        business_status = "POSSIBLE_DUPLICATE_REVIEW"
+        business_status = _downgraded_status(business_status)
 
     if structural_role_mismatch:
         left = ", ".join(structural_role_mismatch["values_a"])
@@ -309,8 +323,7 @@ def evaluate_candidate(
         )
         rule_decision = "DOWNGRADE"
         rejection_reason = "STRUCTURAL_ROLE_MISMATCH"
-        if not generic_warning:
-            business_status = "POSSIBLE_DUPLICATE_REVIEW"
+        business_status = _downgraded_status(business_status)
         reported_mismatches.append(structural_role_mismatch)
 
     reordered = find_reordered_numbers(attributes_a, attributes_b)
@@ -323,8 +336,7 @@ def evaluate_candidate(
         )
         rule_decision = "DOWNGRADE"
         rejection_reason = rejection_reason or "REORDERED_NUMBERS"
-        if not generic_warning:
-            business_status = "POSSIBLE_DUPLICATE_REVIEW"
+        business_status = _downgraded_status(business_status)
 
     final = round(final, 2)
     confidence = confidence_for(final)

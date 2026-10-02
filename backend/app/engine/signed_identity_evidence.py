@@ -18,7 +18,7 @@ from app.engine.identity_signature import (
 )
 
 
-SIGNED_IDENTITY_EVIDENCE_COMPARISON_VERSION = "signed-identity-comparison-v2"
+SIGNED_IDENTITY_EVIDENCE_COMPARISON_VERSION = "signed-identity-comparison-v3"
 
 
 class ShadowEvidenceBucket(str, Enum):
@@ -31,9 +31,15 @@ class ShadowEvidenceBucket(str, Enum):
 
 _IDENTITY_ELIGIBLE_KEYS = frozenset({
     "bounded_object_or_construct",
+    "explicit_type_or_grade",
+})
+# Role words (component, assembly, inlet, head end, ...) say what part a
+# record plays, not which item it is. A role *difference* stays informative
+# through the contradiction checks below; role *agreement* is context only and
+# must not count as trusted identity support ("INDUSTRIAL COMPONENT" twice).
+_ROLE_KEYS = frozenset({
     "end_position", "serialization_role", "flow_role",
     "engine_component_role", "structural_role",
-    "explicit_type_or_grade",
 })
 _UNTRUSTED_PROVENANCE_MARKERS = ("GENERIC", "DESCRIPTION_MASTER_MATCH")
 
@@ -125,7 +131,14 @@ def derive_signed_identity_evidence(
         for left_item in left_index[key]:
             for right_item in right_index[key]:
                 category, semantic_key, _value = key
-                if (
+                if semantic_key in _ROLE_KEYS:
+                    facts.append(_fact(
+                        SignedEvidenceChannel.LEXICAL_SUPPORT,
+                        left_item, right_item,
+                        observed_fact="role or position wording agrees; not item identity",
+                        reason_code="SHADOW_ROLE_AGREEMENT_NOT_IDENTITY",
+                    ))
+                elif (
                     semantic_key in _IDENTITY_ELIGIBLE_KEYS
                     and _trusted(left_item)
                     and _trusted(right_item)
