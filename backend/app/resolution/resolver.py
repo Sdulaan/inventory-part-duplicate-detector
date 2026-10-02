@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from itertools import combinations
 from math import comb
 from typing import Protocol
@@ -46,6 +47,7 @@ from app.resolution.input_index import (
 )
 from app.resolution.validation import (
     IdentityResolutionValidationError,
+    identical_description_clique,
     targeted_result_from_evaluation,
     validate_group_hypothesis,
     validate_resolution_input,
@@ -290,7 +292,7 @@ def _connected_count(member_ids, adjacency, *, excluded=None):
     return len(seen)
 
 
-def _bridge_summary(member_ids, lookup):
+def _bridge_summary(member_ids, lookup, *, identical_descriptions=False):
     adjacency = _positive_adjacency(member_ids, lookup)
     connected = _connected_count(member_ids, adjacency) == len(member_ids)
     articulation = tuple(sorted(
@@ -309,7 +311,12 @@ def _bridge_summary(member_ids, lookup):
         incident = []
         for neighbor in adjacency[member]:
             incident.append(lookup[_pair(member, neighbor)])
-        if len(incident) >= 2 and all(item[1] for item in incident):
+        # A generic hub can join records with different text; identical
+        # descriptions leave nothing for it to bridge.
+        if (
+            len(incident) >= 2 and all(item[1] for item in incident)
+            and not identical_descriptions
+        ):
             generic_hubs.append(member)
     unresolved = bool(missing or generic_hubs or (
         neutral and (articulation or branches or not connected)
@@ -351,7 +358,10 @@ def _build_group(value, unit, members, lookup, targeted_results):
         member for pair, evidence in zip(combinations(members, 2), internal)
         if evidence[1] for member in pair
     }
-    bridge = _bridge_summary(members, lookup)
+    bridge = _bridge_summary(
+        members, lookup,
+        identical_descriptions=identical_description_clique(value, members, internal),
+    )
     genericity = GenericityRiskSummary(
         generic_description_burden=bool(generic_count),
         review_only_support=(
@@ -478,6 +488,24 @@ def _candidate_groups_reference(value, unit, lookup, targeted_results, counters)
         if exhausted:
             break
     unique = {candidate.group.hypothesis_fingerprint: candidate for candidate in candidates}
+    # Records with one identical description and only review support have no
+    # evidence that orders any split of them over another, so every split
+    # ties and the whole family was deferred. Keep the complete identical set
+    # and drop its strict subsets; families with strong support are unchanged.
+    identical_sets = tuple(
+        candidate.members for candidate in unique.values()
+        if candidate.group.evidence_summary.strong_support_count == 0
+        and identical_description_clique(
+            value, tuple(sorted(candidate.members)), [
+                lookup.get(pair)
+                for pair in combinations(sorted(candidate.members), 2)
+            ],
+        )
+    )
+    unique = {
+        key: candidate for key, candidate in unique.items()
+        if not any(candidate.members < members for members in identical_sets)
+    }
     return tuple(sorted(
         unique.values(), key=lambda item: item.semantic_member_key
     )), exhausted
@@ -505,20 +533,86 @@ def _candidate_groups(value, unit, lookup, targeted_results, counters):
     )
 
 
+def _objective_upper_bound(candidates):
+    """Return a bound on the objective any completion of a search node can reach.
+
+    Each component is an upper bound on the matching component of every
+    partition reachable from ``(index, selected, used)``: only candidates at
+    ``index`` or later that are disjoint from ``used`` can still be added.
+    A tuple that bounds every component also bounds the lexicographic order,
+    so a node whose bound is strictly below the best objective found so far
+    cannot reach the best or tie it and is safely skipped. Strong support is
+    bounded per member by the best strong-per-member ratio of any candidate
+    still able to cover it, since disjoint groups sum those shares exactly.
+    """
+    likely_status = IdentityGroupHypothesisStatus.LIKELY_DUPLICATE_GROUP
+    by_member = {}
+    for index, candidate in enumerate(candidates):
+        share = Fraction(
+            candidate.group.evidence_summary.strong_support_count,
+            len(candidate.members),
+        )
+        likely = candidate.group.status == likely_status
+        for member in candidate.members:
+            by_member.setdefault(member, []).append(
+                (share, likely, index, candidate.members)
+            )
+    for entries in by_member.values():
+        entries.sort(key=lambda item: (-item[0], item[2]))
+
+    def bound(index, selected, used):
+        groups = [candidates[item].group for item in selected]
+        covered = len(used)
+        likely_members = sum(
+            len(group.member_record_ids)
+            for group in groups if group.status == likely_status
+        )
+        strong = Fraction(sum(
+            group.evidence_summary.strong_support_count for group in groups
+        ))
+        review = sum(group.evidence_summary.review_support_count for group in groups)
+        for member, entries in by_member.items():
+            if member in used:
+                continue
+            best_share = None
+            for share, likely, position, members in entries:
+                if position < index or used & members:
+                    continue
+                if best_share is None:
+                    best_share = share
+                    covered += 1
+                    strong += share
+                if likely:
+                    likely_members += 1
+                    break
+        return (covered, likely_members, strong, -review, -len(selected))
+
+    return bound
+
+
 def _select_partition(value, candidates, counters):
     maximum_explored = _candidate_generation_limit(value)
     best_objective = None
     best_partitions = set()
     exhausted = False
     starting_count = counters.candidate_partitions_explored
+    upper_bound = _objective_upper_bound(candidates)
 
     # Depth-first over "skip, then include" for each candidate. An explicit
     # stack replaces recursion, whose depth equalled the candidate count and
     # overflowed on work units with more than ~1000 candidate groups; frames
     # are pushed include-first so they are visited in the recursive order.
+    # Branches that cannot reach or tie the best objective are skipped before
+    # they are counted, so the visited nodes are a subset of the unpruned
+    # search and its selected partitions are unchanged.
     stack = [(0, (), frozenset())]
     while stack:
         index, selected, used = stack.pop()
+        if (
+            best_objective is not None
+            and upper_bound(index, selected, used) < best_objective
+        ):
+            continue
         counters.candidate_partitions_explored += 1
         if counters.candidate_partitions_explored - starting_count > maximum_explored:
             exhausted = True

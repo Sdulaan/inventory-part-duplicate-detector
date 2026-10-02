@@ -56,6 +56,29 @@ from app.resolution.pair_explanation import (
 )
 
 
+_POSITIVE_EDGE_CLASSES = frozenset({
+    IdentityEdgeClass.STRONG_SUPPORT, IdentityEdgeClass.REVIEW_SUPPORT,
+})
+
+
+def identical_description_clique(resolution_input, member_ids, internal) -> bool:
+    """True when 3+ members share one normalized description and every pair supports.
+
+    Generic-only REVIEW_SUPPORT normally cannot hold three or more records
+    together because low-information text can chain unlike items. Records
+    whose normalized descriptions are exactly equal, with positive evidence
+    on every internal pair, cannot chain through different text, so that
+    guard does not apply to them. Such groups still never become LIKELY.
+    """
+    if len(member_ids) < 3 or len(internal) != len(member_ids) * (len(member_ids) - 1) // 2:
+        return False
+    if not all(item is not None and item[0] in _POSITIVE_EDGE_CLASSES for item in internal):
+        return False
+    by_id = records_by_id(resolution_input)
+    descriptions = {by_id[member].normalized_description for member in member_ids}
+    return len(descriptions) == 1 and bool(next(iter(descriptions)))
+
+
 class IdentityResolutionValidationError(ValueError):
     """Raised when a constructed resolver artifact violates a frozen invariant."""
 
@@ -459,6 +482,9 @@ def validate_group_hypothesis(
             and summary.strong_support_count == 0
             and summary.review_support_count > 0
             and summary.generic_evidence_edge_count == summary.review_support_count
+            and not identical_description_clique(
+                resolution_input, group.member_record_ids, internal
+            )
         )
         _require(not generic_only_connectivity,
                  "multi-record generic-only review connectivity is not group cohesion")
