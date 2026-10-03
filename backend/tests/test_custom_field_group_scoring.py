@@ -35,12 +35,12 @@ def _sheet(client, scan_id, name):
 
 
 def _members(client, scan_id):
-    header, rows = _sheet(client, scan_id, "Review Groups")
+    header, rows = _sheet(client, scan_id, "Duplicate Group Details")
     return sorted(row[header.index("Part Number")] for row in rows)
 
 
 def _strength(client, scan_id):
-    header, rows = _sheet(client, scan_id, "Review Groups")
+    header, rows = _sheet(client, scan_id, "Duplicate Group Details")
     values = [row[header.index("Match Strength")] for row in rows if row[header.index("Match Strength")] is not None]
     return values[0] if values else None
 
@@ -106,22 +106,22 @@ def _workbook(client, scan_id, kind="system-groups"):
 def test_custom_field_values_appear_as_selected_columns_in_the_workbook(client):
     _custom(client, "SUPPORTING")
     scan_id = _scan(client, _two_parts(b"ACME", b"ACME"), ["MANUFACTURER_CODE"])
-    for sheet in ("Review Groups", "Detailed Data"):
+    for sheet in ("Duplicate Group Details", "Duplicate Records"):
         header, rows = _sheet(client, scan_id, sheet)
         column = header.index("Manufacturer Code")
         assert [row[column] for row in rows] == ["ACME", "ACME"]
-    # Detailed Data lists selected conditions before the unselected Inventory columns;
-    # Review Groups keeps its reviewer layout and adds them after the Inventory block.
-    detailed, _ = _sheet(client, scan_id, "Detailed Data")
+    # Duplicate Records lists selected conditions before the unselected Inventory columns;
+    # Duplicate Group Details keeps its reviewer layout and adds them after the Inventory block.
+    detailed, _ = _sheet(client, scan_id, "Duplicate Records")
     assert detailed.index("Manufacturer Code") < detailed.index("Commodity Group 01")
-    review, _ = _sheet(client, scan_id, "Review Groups")
+    review, _ = _sheet(client, scan_id, "Duplicate Group Details")
     assert review.index("Site") < review.index("Manufacturer Code") < review.index("Review Consideration")
 
 
 def test_custom_column_is_highlighted_like_other_selected_conditions(client):
     _custom(client, "SUPPORTING")
     scan_id = _scan(client, _two_parts(b"ACME", b"ACME"), ["MANUFACTURER_CODE"])
-    sheet = _workbook(client, scan_id)["Detailed Data"]
+    sheet = _workbook(client, scan_id)["Duplicate Records"]
     header = [cell.value for cell in sheet[1]]
     custom = sheet.cell(1, header.index("Manufacturer Code") + 1).fill.fgColor.rgb
     unselected = sheet.cell(1, header.index("Commodity Group 01") + 1).fill.fgColor.rgb
@@ -132,7 +132,7 @@ def test_custom_column_is_highlighted_like_other_selected_conditions(client):
 def test_strict_custom_column_is_shown_even_when_not_ticked(client):
     _custom(client, "STRICT")
     scan_id = _scan(client, _two_parts(b"ACME", b"ACME"), [])
-    header, _rows = _sheet(client, scan_id, "Detailed Data")
+    header, _rows = _sheet(client, scan_id, "Duplicate Records")
     assert "Manufacturer Code" in header
 
 
@@ -151,14 +151,14 @@ def test_selected_purchase_conditions_get_columns_and_unselected_do_not(client):
         b"A2," + PUMP + b",10,ALAIN,PG1\n"
     )
     scan_id = _scan(client, csv, ["BUYER_ID"], "PURCHASE")
-    header, rows = _sheet(client, scan_id, "Detailed Data")
+    header, rows = _sheet(client, scan_id, "Duplicate Records")
     assert [row[header.index("Buyer Id")] for row in rows] == ["ALAIN", "ALAIN"]
     assert "Purchase Group" not in header
 
 
 def test_workbook_columns_are_unchanged_when_no_extra_conditions_are_used(client):
     csv = b"Part No,Item Description,Site\nA1," + PUMP + b",10\nA2," + PUMP + b",10\n"
-    header, _rows = _sheet(client, _scan(client, csv, ["CONTRACT"]), "Detailed Data")
+    header, _rows = _sheet(client, _scan(client, csv, ["CONTRACT"]), "Duplicate Records")
     assert header[5:8] == ["Part Number", "Description", "Site"]
     assert header[-1] == "HSN/SAC Code" and len(header) == 18
 
@@ -166,5 +166,5 @@ def test_workbook_columns_are_unchanged_when_no_extra_conditions_are_used(client
 def test_reviewed_identities_workbook_carries_the_same_columns(client):
     _custom(client, "SUPPORTING")
     scan_id = _scan(client, _two_parts(b"ACME", b"ACME"), ["MANUFACTURER_CODE"])
-    sheet = _workbook(client, scan_id, "reviewed-identities")["Detailed Data"]
+    sheet = _workbook(client, scan_id, "reviewed-identities")["Duplicate Records"]
     assert "Manufacturer Code" in [cell.value for cell in sheet[1]]

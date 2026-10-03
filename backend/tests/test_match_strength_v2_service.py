@@ -64,10 +64,10 @@ def test_persisted_projection_scores_without_evaluator_rerun(db, client):
     )
     workbook = load_workbook(io.BytesIO(xlsx_response.content), data_only=False)
     assert workbook.sheetnames == [
-        "Overview", "Review Groups", "Group Index", "Detailed Data",
+        "Overview", "Duplicate Group Details", "Group Details", "Duplicate Records",
         "Deferred Families", "Technical Reference",
     ]
-    assert "Match Strength" in tuple(cell.value for cell in workbook["Group Index"][1])
+    assert "Match Strength" in tuple(cell.value for cell in workbook["Group Details"][1])
     assert "Match Strength Version" in tuple(
         cell.value
         for cell in workbook["Technical Reference"][TECHNICAL_REFERENCE_HEADER_ROW]

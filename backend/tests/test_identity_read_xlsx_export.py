@@ -140,9 +140,9 @@ def test_client_workbook_contract_semantics_merges_and_review(db, client):
                 assert coordinate not in occupied
                 occupied.add(coordinate)
 
-    review = workbook["Review Groups"]
-    index = workbook["Group Index"]
-    flat = workbook["Detailed Data"]
+    review = workbook["Duplicate Group Details"]
+    index = workbook["Group Details"]
+    flat = workbook["Duplicate Records"]
     technical = workbook["Technical Reference"]
     assert tuple(cell.value for cell in review[1]) == REVIEW_GROUP_COLUMNS
     assert REVIEW_GROUP_COLUMNS == (
@@ -291,7 +291,7 @@ def test_match_strength_xlsx_presentation_is_group_scoped_and_auditable(db):
     assert "does not replace human review" in overview_text
     assert "Unscored" not in overview_text
 
-    detailed_headers = tuple(cell.value for cell in workbook["Detailed Data"][1])
+    detailed_headers = tuple(cell.value for cell in workbook["Duplicate Records"][1])
     assert "Evidence" not in detailed_headers
     assert "Evidence Tier" not in detailed_headers
     assert "Match Strength" not in detailed_headers
@@ -347,7 +347,7 @@ def test_three_member_group_is_one_visual_block_with_distinct_members(db, monkey
         lambda _self, _scan_id: snapshot,
     )
     workbook = _workbook(authority_selected_system_groups_to_xlsx(db, 21))
-    sheet = workbook["Review Groups"]
+    sheet = workbook["Duplicate Group Details"]
     member_count = snapshot.groups[0].member_count
     assert member_count >= 3
     group_end_row = sheet.max_row
@@ -384,8 +384,8 @@ def test_three_member_group_is_one_visual_block_with_distinct_members(db, monkey
         for merged in sheet.merged_cells.ranges
     )
     assert sheet.freeze_panes == "G2"
-    assert not workbook["Detailed Data"].merged_cells.ranges
-    assert workbook["Detailed Data"].max_row == member_count + 1
+    assert not workbook["Duplicate Records"].merged_cells.ranges
+    assert workbook["Duplicate Records"].max_row == member_count + 1
 
 
 def test_member_pair_columns_are_incident_deterministic_and_score_aligned():
@@ -612,7 +612,7 @@ def test_unreviewed_candidate_requires_human_review_and_reason_is_concise(db, cl
     workbook = _workbook(client.get(
         f"/api/scans/{scan.id}/identity-read/system-groups/export.xlsx"
     ).content)
-    rows = _dict_rows(workbook["Group Index"])
+    rows = _dict_rows(workbook["Group Details"])
     assert all("Review Status" not in row for row in rows)
     assert {row["Human Decision"] for row in rows} == {"Not yet reviewed"}
     assert all("Why Suggested" not in row for row in rows)
@@ -641,11 +641,11 @@ def test_repeated_generation_is_semantically_and_visually_deterministic(db):
         _workbook(authority_selected_system_groups_to_xlsx(db, scan.id))
         for _ in range(3)
     ]
-    for sheet_name in ("Review Groups", "Group Index", "Detailed Data", "Technical Reference"):
+    for sheet_name in ("Duplicate Group Details", "Group Details", "Duplicate Records", "Technical Reference"):
         values = [list(book[sheet_name].iter_rows(values_only=True)) for book in generated]
         assert values[0] == values[1] == values[2]
     merges = [
-        tuple(sorted(str(item) for item in book["Review Groups"].merged_cells.ranges))
+        tuple(sorted(str(item) for item in book["Duplicate Group Details"].merged_cells.ranges))
         for book in generated
     ]
     assert merges[0] == merges[1] == merges[2]
@@ -747,7 +747,7 @@ def test_data_level_projection_is_logically_equivalent(db):
     scan = review_scan(db)
     _, raw_rows = authority_selected_system_group_rows(db, scan.id)
     workbook = _workbook(authority_selected_system_groups_to_xlsx(db, scan.id))
-    details = _dict_rows(workbook["Detailed Data"])
+    details = _dict_rows(workbook["Duplicate Records"])
     technical = _technical_rows(workbook["Technical Reference"])
     assert len(raw_rows) == len(details) == len(technical)
     labels_by_key = {}
@@ -794,11 +794,11 @@ def test_empty_state_is_friendly_and_structurally_valid(db, monkeypatch):
     workbook = _workbook(authority_selected_system_groups_to_xlsx(db, 21))
     assert tuple(workbook.sheetnames) == SHEET_ORDER
     assert workbook["Overview"]["A20"].value == 0
-    assert workbook["Review Groups"]["A2"].value == (
+    assert workbook["Duplicate Group Details"]["A2"].value == (
         "No candidate groups were generated for this scan."
     )
-    assert workbook["Group Index"].max_row == 1
-    assert workbook["Detailed Data"].max_row == 1
+    assert workbook["Group Details"].max_row == 1
+    assert workbook["Duplicate Records"].max_row == 1
     assert workbook["Technical Reference"].max_row == TECHNICAL_REFERENCE_HEADER_ROW
 
 
@@ -825,7 +825,7 @@ def test_formula_like_inventory_values_remain_literal_and_source_immutable(
     )
     response = client.get("/api/scans/21/identity-read/system-groups/export.xlsx")
     assert response.status_code == 200
-    row = _workbook(response.content)["Detailed Data"][2]
+    row = _workbook(response.content)["Duplicate Records"][2]
     for index, expected in ((5, "=1+1"), (6, "+ABC"), (7, "-XYZ"), (8, "@PART")):
         assert row[index].value == expected
         assert row[index].data_type == "s"
@@ -933,7 +933,7 @@ def test_selected_matching_columns_are_green_and_others_default(db):
     scan.selected_fields = json.dumps(["CONTRACT", "UNIT_MEAS"])
     db.commit()
     workbook = _workbook(authority_selected_system_groups_to_xlsx(db, scan.id))
-    for sheet_name in ("Review Groups", "Detailed Data"):
+    for sheet_name in ("Duplicate Group Details", "Duplicate Records"):
         sheet = workbook[sheet_name]
         headers = {cell.value: cell for cell in sheet[1]}
         for selected in ("Part Number", "Description", "Site", "Inventory UOM"):
@@ -954,7 +954,7 @@ def test_part_type_is_green_only_when_its_condition_is_selected(db):
     db.commit()
     sheet = _workbook(
         authority_selected_system_groups_to_xlsx(db, scan.id)
-    )["Review Groups"]
+    )["Duplicate Group Details"]
     headers = {cell.value: cell for cell in sheet[1]}
     assert headers["Part Type"].fill.fgColor.rgb.endswith("548235")
     assert headers["Site"].fill.fgColor.rgb.endswith("1F4E78")

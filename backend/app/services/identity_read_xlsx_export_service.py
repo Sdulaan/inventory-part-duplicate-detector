@@ -55,9 +55,9 @@ REVIEWED_WORKBOOK_NOTICE = (
 )
 SHEET_ORDER = (
     "Overview",
-    "Review Groups",
-    "Group Index",
-    "Detailed Data",
+    "Duplicate Group Details",
+    "Group Details",
+    "Duplicate Records",
     "Deferred Families",
     "Technical Reference",
 )
@@ -66,7 +66,7 @@ GROUP_INDEX_COLUMNS = (
     "Review Consideration", "Human Decision", "Human Comment",
     "Same Parts in Other Groups",
 )
-# Review Groups layout: compact group context, per-member review and detail,
+# Duplicate Group Details layout: compact group context, per-member review and detail,
 # then group explanation and pair evidence at the far right.
 _REVIEW_GROUP_CONTEXT_COLUMNS = (
     "Group", "Match Strength", "Match Band", "Group Sites",
@@ -167,7 +167,7 @@ MATCH_STRENGTH_TECHNICAL_CONTRACT = (
     ),
     (
         "Business-facing labels",
-        "Evidence Tier and Match Band wording in Review Groups and Group Index is presentation-only; internal values and contracts are unchanged.",
+        "Evidence Tier and Match Band wording in Duplicate Group Details and Group Details is presentation-only; internal values and contracts are unchanged.",
     ),
 )
 TECHNICAL_REFERENCE_HEADER_ROW = len(MATCH_STRENGTH_TECHNICAL_CONTRACT) + 5
@@ -966,7 +966,7 @@ def _write_footer_metadata(sheet, metadata, *, start_row: int) -> None:
 
 
 def _write_column_colour_key(sheet, start_row: int) -> None:
-    """Explain the header colours used on Review Groups and Detailed Data."""
+    """Explain the header colours used on Duplicate Group Details and Duplicate Records."""
     _merge_and_write(
         sheet, f"A{start_row}:H{start_row}", "COLUMN COLOUR KEY",
         fill=PatternFill("solid", fgColor=_NAVY),
@@ -988,7 +988,7 @@ def _write_column_colour_key(sheet, start_row: int) -> None:
         (
             _GROUP_FILLS[0], "Shading",
             "Groups that share a part number, such as the same parts at other "
-            "sites, are listed one below another and share a shade on Review Groups.",
+            "sites, are listed one below another and share a shade on Duplicate Group Details.",
         ),
     ), start=start_row + 1):
         _merge_and_write(
@@ -1157,10 +1157,10 @@ def _write_overview(workbook, scan, snapshot, review_states, strength_distributi
     )
     _merge_and_write(
         sheet, "A43:H46",
-        "1. Open Review Groups and inspect each suggested group.\n"
+        "1. Open Duplicate Group Details and inspect each suggested group.\n"
         "2. Record Confirm, Reject, or Defer decisions in the application using "
         "the source records and evidence.\n"
-        "3. Use Detailed Data when additional record-level information is required.",
+        "3. Use Duplicate Records when additional record-level information is required.",
         fill=PatternFill("solid", fgColor=_WHITE),
         font=Font(color=_TEXT),
         alignment=Alignment(horizontal="left", vertical="top", wrap_text=True),
@@ -1646,9 +1646,9 @@ def authority_selected_system_groups_to_xlsx(db, scan_id: int) -> bytes:
     _write_overview(
         workbook, scan, snapshot, review_states, strength_distribution
     )
-    review_groups = workbook.create_sheet("Review Groups")
-    group_index = workbook.create_sheet("Group Index")
-    detailed_data = workbook.create_sheet("Detailed Data")
+    review_groups = workbook.create_sheet("Duplicate Group Details")
+    group_index = workbook.create_sheet("Group Details")
+    detailed_data = workbook.create_sheet("Duplicate Records")
     deferred_families = workbook.create_sheet("Deferred Families")
     technical = workbook.create_sheet("Technical Reference")
     _write_review_groups(review_groups, groups, source_columns, selected_columns)
@@ -1769,10 +1769,10 @@ def _write_reviewed_overview(
     )
     _merge_and_write(
         sheet, "A36:H38",
-        "1. Open Review Groups and inspect each human-confirmed group.\n"
+        "1. Open Duplicate Group Details and inspect each human-confirmed group.\n"
         "2. The Human Decision column shows the recorded reviewer decision for "
         "each group.\n"
-        "3. Use Detailed Data when additional record-level information is required.",
+        "3. Use Duplicate Records when additional record-level information is required.",
         fill=PatternFill("solid", fgColor=_WHITE),
         font=Font(color=_TEXT),
         alignment=Alignment(horizontal="left", vertical="top", wrap_text=True),
@@ -1899,9 +1899,9 @@ def authority_selected_reviewed_identities_to_xlsx(db, scan_id: int) -> bytes:
         workbook, scan, snapshot, groups, strength_distribution,
         confirmed_same_count, split_count,
     )
-    review_groups = workbook.create_sheet("Review Groups")
-    group_index_sheet = workbook.create_sheet("Group Index")
-    detailed_data = workbook.create_sheet("Detailed Data")
+    review_groups = workbook.create_sheet("Duplicate Group Details")
+    group_index_sheet = workbook.create_sheet("Group Details")
+    detailed_data = workbook.create_sheet("Duplicate Records")
     technical = workbook.create_sheet("Technical Reference")
     _write_review_groups(review_groups, groups, source_columns, selected_columns)
     _write_group_index(group_index_sheet, groups)

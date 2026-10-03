@@ -21,6 +21,7 @@ import {
   exportSuccessFeedback,
   summarizeReviewedExportAvailability,
 } from '../utils/identityExportUi'
+import { scanDownloadFilename } from '../utils/partTypeUi'
 import { scanStatusLabel } from '../utils/productJourneyUi'
 import {
   relationshipLabel,
@@ -359,7 +360,7 @@ function ValidScanResults({ id }) {
     }
     setExportBusyKind(kind)
     try {
-      await api.download(target.path, target.filename)
+      await api.download(target.path, scan?.part_type ? scanDownloadFilename(scan.part_type, target.filename) : target.filename)
       setExportFeedback({ kind: 'success', message: exportSuccessFeedback(kind) })
     } catch (error) {
       setExportFeedback({ kind: 'error', message: exportFailureFeedback(kind, error.status) })

@@ -360,7 +360,7 @@ def _run_mode(repository_root: Path, records, mode: str, settings: dict) -> dict
                     for row in sheet.iter_rows()
                     for cell in row
                 )
-                review_sheet = workbook["Review Groups"]
+                review_sheet = workbook["Duplicate Group Details"]
                 xlsx_result = {
                     "seconds": round(xlsx_seconds, 6),
                     "bytes": len(workbook_bytes),

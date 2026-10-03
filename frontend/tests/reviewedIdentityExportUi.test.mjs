@@ -39,7 +39,7 @@ test('reviewed export targets an exact selected projection when available', () =
 test('reviewed export never invokes review mutation or LLM endpoints', () => {
   const target = identityReadExportTargets(21).reviewedIdentities
   assert.doesNotMatch(target.path, /\/reviews(?:\/|\?|$)|llm|triage|advisory/i)
-  assert.match(resultsSource, /api\.download\(target\.path, target\.filename\)/)
+  assert.match(resultsSource, /api\.download\(target\.path, .*target\.filename/)
 })
 
 test('existing G5 export targets remain byte-for-byte utility compatible', () => {

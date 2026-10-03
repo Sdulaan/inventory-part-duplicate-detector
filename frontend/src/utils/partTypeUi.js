@@ -40,3 +40,13 @@ export function fieldDisplayForPartType(field, partType) {
 export function partTypeLabel(partType) {
   return new Map(PART_TYPE_OPTIONS).get(partType) || 'Unknown part type'
 }
+
+const pad2 = value => String(value).padStart(2, '0')
+
+// e.g. "Inventory Parts Scan_2026-10-03_14-30-05.xlsx"; keeps the extension of fallbackName.
+export function scanDownloadFilename(partType, fallbackName, now = new Date()) {
+  const extension = /\.[A-Za-z0-9]+$/.exec(fallbackName)?.[0] || ''
+  const date = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`
+  const time = `${pad2(now.getHours())}-${pad2(now.getMinutes())}-${pad2(now.getSeconds())}`
+  return `${partTypeLabel(partType)} Scan_${date}_${time}${extension}`
+}

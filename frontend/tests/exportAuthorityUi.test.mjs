@@ -81,7 +81,7 @@ test('E13 Reviewed CSV route and feedback identify current human authority only'
   const target = identityReadExportTargets(9).reviewedIdentities
   assert.deepEqual(target, { path: '/api/scans/9/identity-read/reviewed-identities/export.csv', filename: 'scan-9-reviewed-identity-sets.csv' })
   assert.match(exportSuccessFeedback('reviewed'), /current human-confirmed same-identity sets only/)
-  assert.match(page, /api\.download\(target\.path, target\.filename\)/)
+  assert.match(page, /api\.download\(target\.path, .*target\.filename/)
 })
 
 test('E14 export failures distinguish 404, 409, 422, and network errors accessibly', () => {

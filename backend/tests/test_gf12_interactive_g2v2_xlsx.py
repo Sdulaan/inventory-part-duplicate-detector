@@ -213,7 +213,7 @@ def test_excel_table_range_columns_name_and_relationship_are_valid(db, client):
     ).content
     package = _package(payload)
     workbook = load_workbook(io.BytesIO(payload), data_only=False)
-    flat = workbook["Detailed Data"]
+    flat = workbook["Duplicate Records"]
     expected_ref = f"A1:{get_column_letter(len(flat[1]))}{flat.max_row}"
     assert package["table"].attrib["ref"] == expected_ref
     assert package["table"].attrib["name"] == "SystemGroupData"
@@ -236,7 +236,7 @@ def test_r6_19_merged_ranges_are_valid_and_non_overlapping(db, client):
         f"/api/scans/{scan_id}/identity-read/system-groups/export.xlsx"
     ).content
     workbook = load_workbook(io.BytesIO(payload), data_only=False)
-    sheet = workbook["Review Groups"]
+    sheet = workbook["Duplicate Group Details"]
     headers = {cell.column: cell.value for cell in sheet[1]}
     per_relationship_columns = {
         "Part Relationships", "Pair Match Scores",
@@ -263,8 +263,8 @@ def test_r6_21_round_trip_retains_table_and_single_filter(db, client):
     output = io.BytesIO()
     workbook.save(output)
     reopened = load_workbook(io.BytesIO(output.getvalue()), data_only=False)
-    assert tuple(reopened["Detailed Data"].tables) == ("SystemGroupData",)
-    assert reopened["Detailed Data"].auto_filter.ref is None
+    assert tuple(reopened["Duplicate Records"].tables) == ("SystemGroupData",)
+    assert reopened["Duplicate Records"].auto_filter.ref is None
     round_trip = _package(output.getvalue())
     assert len(round_trip["table"].findall(f"{{{_MAIN_NS}}}autoFilter")) == 1
     assert round_trip["flat"].findall(f"{{{_MAIN_NS}}}autoFilter") == []

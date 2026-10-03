@@ -76,9 +76,9 @@ test('N8b changing part type or the inventory-part choice invalidates validation
 })
 
 test('N9 active synchronous processing is announced without staged progress', () => {
-  assert.match(newScan, /Request active/)
+  assert.match(newScan, /Scan running/)
   assert.match(newScan, /Processing inventory/)
-  assert.match(newScan, /The scan is still running/)
+  assert.match(processingGuidance(60), /The scan is still running/)
   assert.match(newScan, /aria-busy="true"/)
 })
 
@@ -90,13 +90,13 @@ test('N10 duplicate submission is guarded before React rerenders', () => {
 
 test('N11 elapsed and long-running wording are truthful', () => {
   assert.equal(formatElapsed(134), '02:14')
-  assert.match(processingGuidance(60), /request remains active/)
-  assert.match(processingGuidance(60), /do not resubmit unless an error is shown/)
+  assert.match(processingGuidance(60), /still running on the server/)
+  assert.match(processingGuidance(60), /Do not resubmit/)
 })
 
 test('N12 completion routes exactly once to the returned scan id', () => {
   assert.match(newScan, /completionRouted\.current/)
-  assert.match(newScan, /nav\(`\/scans\/\$\{r\.scan_id\}`\)/)
+  assert.match(newScan, /nav\(`\/scans\/\$\{outcome\.scanId\}`\)/)
 })
 
 test('N13 422 recovery identifies CSV or mapping rejection', () => {
